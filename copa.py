@@ -86,26 +86,34 @@ def parse_crush(cal: pd.DataFrame, crop: pd.DataFrame):
 
 
 def parse_exports() -> pd.DataFrame:
-    """Calendar- and crop-year canola seed / oil / meal exports by destination, tonnes."""
+    """Calendar- and crop-year canola seed / oil / meal exports by destination: tonnes and $000."""
     tabs = _tables("exports-imports")
-    spec = [(0, "calendar", "Canola seed"), (1, "calendar", "Canola oil"), (2, "calendar", "Canola meal"),
-            (12, "crop", "Canola seed"), (13, "crop", "Canola oil"), (14, "crop", "Canola meal")]
-    out = []
-    for idx, basis, product in spec:
-        t = tabs[idx].drop(columns="wdt_ID")
+    # (tonnes table, $000 table, basis, product)
+    spec = [(0, 6, "calendar", "Canola seed"), (1, 7, "calendar", "Canola oil"), (2, 8, "calendar", "Canola meal"),
+            (12, 18, "crop", "Canola seed"), (13, 19, "crop", "Canola oil"), (14, 20, "crop", "Canola meal")]
+
+    def tidy(i: int, basis: str, product: str, value_name: str) -> pd.DataFrame:
+        t = tabs[i].drop(columns="wdt_ID")
         dest_col = t.columns[0]
+        rows = []
         for col in t.columns[1:]:
             partial = bool(re.search(r"[A-Za-z]", str(col)))
             for dest, v in zip(t[dest_col], t[col]):
-                v = pd.to_numeric(str(v).replace(",", ""), errors="coerce")
+                v = pd.to_numeric(re.sub(r"[$,]", "", str(v)), errors="coerce")
                 if pd.isna(v):
                     continue
-                dest = re.sub(r"[^\x20-\x7e]", "-", str(dest)).replace("TOTALS - ALL MARKETS", "All markets")
-                dest = dest.replace("TOTALS -- ALL MARKETS", "All markets")
-                out.append((basis, product, str(col).strip(), partial, dest.strip(), float(v)))
-    df = pd.DataFrame(out, columns=["basis", "product", "period", "partial", "destination", "tonnes"])
-    df.loc[df["destination"].str.upper().str.startswith("TOTALS"), "destination"] = "All markets"
-    return df
+                dest = re.sub(r"[^ -~]", "-", str(dest)).strip()
+                if dest.upper().startswith("TOTAL"):
+                    dest = "All markets"
+                rows.append((basis, product, str(col).strip(), partial, dest, float(v)))
+        return pd.DataFrame(rows, columns=["basis", "product", "period", "partial", "destination", value_name])
+
+    out = []
+    for ti, vi, basis, product in spec:
+        a = tidy(ti, basis, product, "tonnes")
+        b = tidy(vi, basis, product, "value_k")[["period", "destination", "value_k"]]
+        out.append(a.merge(b, on=["period", "destination"], how="left"))
+    return pd.concat(out, ignore_index=True)
 
 
 def build_all() -> dict[str, pd.DataFrame]:

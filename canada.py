@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import copa
+import statcan
 
 JPSI_DARK, JPSI_BLUE, ORANGE, GREEN, RED = "#32373c", "#0693e3", "#e8833a", "#5aa469", "#d64545"
 COMPANY_COLORS = {"ADM": "#d64545", "Bunge": "#e0b800", "Cargill": "#5a8a3c",
@@ -19,6 +20,11 @@ MT = 1_000_000
 @st.cache_data(ttl=12 * 3600, show_spinner="Loading COPA tables…")
 def _tables():
     return copa.load()
+
+
+@st.cache_data(ttl=12 * 3600, show_spinner="Loading Statistics Canada tables…")
+def _statcan():
+    return statcan.load()
 
 
 def _style(fig, h=360):
@@ -60,6 +66,95 @@ def _plants():
                  [["Company", "Town", "Prov"]], hide_index=True, width="stretch")
     st.caption("Facilities are oilseed crushing plants: the western plants crush canola; COPA notes the "
                "three eastern plants crush canola and soybeans.")
+
+
+def _production():
+    d, source = _statcan()
+    n = statcan.national(d["production"]).dropna(subset=["production_t"])
+    prov = statcan.by_province(d["production"]).dropna()
+    st.caption("Statistics Canada table 32-10-0359-01 (area, yield and production of principal field crops) · "
+               f"loaded from {source}. The latest year is Statistics Canada's current estimate, not a final.")
+    last, prev = n.iloc[-1], n.iloc[-2]
+    c = st.columns(4)
+    c[0].metric(f"Production {int(last.year)} (est.)", f"{last.production_t / MT:.2f} Mt",
+                f"{(last.production_t / prev.production_t - 1) * 100:+.1f}% vs {int(prev.year)}")
+    c[1].metric("Seeded area", f"{last.seeded_acres / MT:.1f} M ac",
+                f"{(last.seeded_acres / prev.seeded_acres - 1) * 100:+.1f}%")
+    c[2].metric("Harvested area", f"{last.harvested_acres / MT:.1f} M ac")
+    c[3].metric("Yield", f"{last.yield_bu_ac:.1f} bu/ac", f"{last.yield_bu_ac - prev.yield_bu_ac:+.1f}")
+    yrs = st.slider("Years shown", 10, int(len(n)), min(30, int(len(n))), key="pr_years")
+    n = n.tail(yrs)
+    _sh("Production (Mt) and yield (bu/ac)")
+    f = go.Figure()
+    f.add_bar(x=n["year"], y=n["production_t"] / MT, name="Production (Mt)", marker_color=JPSI_BLUE)
+    f.add_scatter(x=n["year"], y=n["yield_bu_ac"], name="Yield (bu/ac)", yaxis="y2",
+                  mode="lines+markers", line=dict(color=ORANGE, width=2.5))
+    f.update_layout(yaxis2=dict(overlaying="y", side="right", showgrid=False, title="bu/ac"))
+    st.plotly_chart(_style(f, 400), width="stretch")
+    _sh("Seeded vs. harvested area (million acres)")
+    a = go.Figure()
+    a.add_scatter(x=n["year"], y=n["seeded_acres"] / MT, name="Seeded", line=dict(color=GREEN, width=2.5))
+    a.add_scatter(x=n["year"], y=n["harvested_acres"] / MT, name="Harvested", line=dict(color=ORANGE, width=2.5))
+    st.plotly_chart(_style(a, 300), width="stretch")
+    _sh("Production by province (Mt)")
+    pv = go.Figure()
+    for name, col in (("Saskatchewan", JPSI_BLUE), ("Alberta", ORANGE), ("Manitoba", GREEN)):
+        pv.add_bar(x=prov["year"].tail(yrs), y=prov[name].tail(yrs) / MT, name=name, marker_color=col)
+    pv.update_layout(barmode="stack")
+    st.plotly_chart(_style(pv, 320), width="stretch")
+    with st.expander("Annual table"):
+        show = n.rename(columns={"year": "Year", "seeded_acres": "Seeded ac", "harvested_acres": "Harvested ac",
+                                 "yield_bu_ac": "Yield bu/ac", "production_t": "Production t",
+                                 "farm_price_t": "Farm price $/t", "farm_value": "Farm value $"}).iloc[::-1]
+        st.dataframe(show, hide_index=True, width="stretch")
+        st.caption("Farm price and value are blank where Statistics Canada has not published them yet.")
+
+
+def _balance():
+    d, source = _statcan()
+    cy_all = statcan.crop_years(d["sd"])
+    pos = statcan.current_positions(d["sd"])
+    st.caption("Statistics Canada table 32-10-0013-01 (supply and disposition of grains), canola seed, "
+               f"crop year Aug–Jul, thousand tonnes · loaded from {source}.")
+    last, prev = cy_all.iloc[-1], cy_all.iloc[-2]
+    c = st.columns(4)
+    c[0].metric(f"Ending stocks {last.crop_year}", f"{last.ending_stocks:,.0f} kt",
+                f"{last.ending_stocks - prev.ending_stocks:+,.0f} vs {prev.crop_year}")
+    c[1].metric("Stocks / use", f"{last.stocks_to_use_pct:.1f}%",
+                f"{last.stocks_to_use_pct - prev.stocks_to_use_pct:+.1f} pts")
+    c[2].metric("Exports", f"{last.exports:,.0f} kt", f"{(last.exports / prev.exports - 1) * 100:+.1f}%")
+    c[3].metric("Industrial use (crush)", f"{last.industrial_use:,.0f} kt",
+                f"{(last.industrial_use / prev.industrial_use - 1) * 100:+.1f}%")
+    n = st.slider("Crop years shown", 5, int(len(cy_all)), min(15, int(len(cy_all))), key="bal_years")
+    cy = cy_all.tail(n)
+    _sh("Where the seed goes: exports and domestic use (kt)")
+    f = go.Figure()
+    f.add_bar(x=cy["crop_year"], y=cy["exports"], name="Exports", marker_color=JPSI_BLUE)
+    f.add_bar(x=cy["crop_year"], y=cy["industrial_use"], name="Industrial use (crush)", marker_color=ORANGE)
+    f.add_bar(x=cy["crop_year"], y=cy["domestic_use"] - cy["industrial_use"], name="Other domestic",
+              marker_color="#9aa5b1")
+    f.update_layout(barmode="stack")
+    st.plotly_chart(_style(f, 380), width="stretch")
+    _sh("Ending stocks (kt) and stocks-to-use (%)")
+    s = go.Figure()
+    s.add_bar(x=cy["crop_year"], y=cy["ending_stocks"], name="Ending stocks (kt)", marker_color=GREEN)
+    s.add_scatter(x=cy["crop_year"], y=cy["stocks_to_use_pct"], name="Stocks / use (%)", yaxis="y2",
+                  mode="lines+markers", line=dict(color=RED, width=2.5))
+    s.update_layout(yaxis2=dict(overlaying="y", side="right", showgrid=False, title="%"))
+    st.plotly_chart(_style(s, 320), width="stretch")
+    _sh("Latest crop-year positions (kt)")
+    show = pos[["beginning_stocks", "production", "imports", "total_supply", "exports", "domestic_use",
+                "ending_stocks"]].copy()
+    names = {"12": "Dec 31", "03": "Mar 31", "07": "Jul 31"}
+    show.index = [names[i[5:]] + " " + i[:4] for i in show.index]
+    show.columns = ["Beginning stocks", "Production", "Imports", "Total supply", "Exports (to date)",
+                    "Domestic use (to date)", "Ending stocks"]
+    st.dataframe(show.style.format("{:,.1f}"), width="stretch")
+    with st.expander("Balance sheet table"):
+        tbl = cy[["crop_year", "beginning_stocks", "production", "imports", "total_supply", "exports",
+                  "domestic_use", "industrial_use", "ending_stocks", "stocks_to_use_pct"]].iloc[::-1]
+        st.dataframe(tbl.set_index("crop_year").style.format("{:,.1f}"), width="stretch")
+        st.caption("Total use = exports + domestic disappearance. Stocks-to-use = ending stocks / total use.")
 
 
 def _crush(d):
@@ -146,6 +241,16 @@ def _exports(d):
     st.caption("Periods labelled with months are partial-year; compare them to the same months of prior years, "
                "not to full years.")
 
+    _sh(f"Implied average export value, $/tonne ({product.lower()})")
+    pv = x[(x["destination"] == "All markets") & x["value_k"].notna()].copy()
+    pv["price"] = pv["value_k"] * 1000 / pv["tonnes"]
+    pf = go.Figure()
+    pf.add_bar(x=pv["period"], y=pv["price"], marker_color=[ORANGE if p else JPSI_BLUE for p in pv["partial"]],
+               text=[f"${v:,.0f}" for v in pv["price"]], textposition="outside")
+    st.plotly_chart(_style(pf, 280), width="stretch")
+    st.caption("Export value / export volume (CAD, Statistics Canada via COPA). Orange = partial year. "
+               "A trade-value average, not a price series.")
+
     _sh("Destination table (tonnes)")
     tbl = dests.pivot_table(index="destination", columns="period", values="tonnes", aggfunc="sum")[periods]
     tbl = tbl.loc[[o for o in order if o in tbl.index]]
@@ -156,10 +261,15 @@ def render():
     d, source = _tables()
     st.caption(f"Data: Statistics Canada, republished by the Canadian Oilseed Processors Association "
                f"([copacanada.com](https://copacanada.com/crush-oil-meal-production/)) · loaded from {source}.")
-    tab = st.segmented_control("Section", ["Crush & production", "Exports", "Plant locations"],
+    tab = st.segmented_control("Section", ["Crush & production", "Production & yield", "Supply & demand",
+                                           "Exports", "Plant locations"],
                                default="Crush & production", key="can_tab", label_visibility="collapsed")
     if tab == "Exports":
         _exports(d)
+    elif tab == "Production & yield":
+        _production()
+    elif tab == "Supply & demand":
+        _balance()
     elif tab == "Plant locations":
         _plants()
     else:
