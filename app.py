@@ -37,29 +37,29 @@ except Exception:
     api_key = ""
 
 # ── Inputs ────────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("**ICE canola seed (RS)**")
-    st.caption("ICE Futures Canada is not on Massive/Polygon. Front-month history is bundled from "
-               "Canola Prices.xlsx (through Oct 9). Paste a newer settle, or upload a CSV "
-               "(columns: date, close) to replace the bundled history.")
-    seed_now = st.number_input("Seed, CAD/mt (latest settle)", min_value=0.0, value=0.0, step=1.0)
-    seed_file = st.file_uploader("Seed history CSV", type="csv")
-    st.markdown("---")
-    st.markdown("**Canola oil & meal legs**")
-    legs = st.radio("Price canola oil & meal off", ["Soy futures proxy", "Fastmarkets cash"],
+c1, c2, c3, c4 = st.columns([1.3, 1.3, 1.3, 1])
+with c1:
+    legs = st.radio("Canola oil & meal legs", ["Soy futures proxy", "Fastmarkets cash"],
                     help="Cash = canola oil fob Los Angeles (¢/lb) and canola meal fob Velva ND ($/short ton).")
-    st.markdown("**Canola oil override**")
-    oil_override = st.number_input("Canola oil cash, ¢/lb (0 = use soy oil)", min_value=0.0,
+with c2:
+    seed_now = st.number_input("Seed, CAD/mt (latest settle)", min_value=0.0, value=0.0, step=1.0,
+                               help="ICE canola isn't on Massive. History is bundled from Canola Prices.xlsx "
+                                    "(through Oct 9); paste a newer settle here.")
+    oil_override = st.number_input("Canola oil override, ¢/lb (0 = off)", min_value=0.0,
                                    value=0.0, step=0.25,
-                                   help="Replaces the soy oil leg in the canola margin (latest day).")
-    st.markdown("---")
+                                   help="Replaces the canola oil leg on the latest day.")
+with c3:
+    seed_file = st.file_uploader("Seed history CSV (replaces bundled)", type="csv",
+                                 help="Columns: date, close (CAD/mt).")
+with c4:
     months = st.slider("History (months)", 3, 14, 12)
     if not api_key and not store.configured():
         api_key = st.text_input("Massive API Key", type="password")
+st.markdown("---")
 
 use_sf = store.configured()
 if not use_sf and not api_key:
-    st.info("Add the Snowflake secrets (preferred) or enter a Massive API key in the sidebar.")
+    st.info("Add the Snowflake secrets (preferred) or enter a Massive API key above.")
     st.stop()
 
 
@@ -115,6 +115,8 @@ cash_note = ""
 df["c_oil"], df["c_meal"] = df["ZL"], df["ZM"]
 if legs == "Fastmarkets cash":
     try:
+        if not store.configured():
+            raise RuntimeError("Snowflake secrets not set")
         cash = store.fetch_canola_cash(df.index[0].date() - timedelta(days=10))
         cash = cash.reindex(cash.index.union(df.index)).ffill().reindex(df.index)
         if cash.dropna().empty:
@@ -161,7 +163,7 @@ if legs == "Fastmarkets cash":
 else:
   st.markdown('<div class="note"><b>Proxy caveat:</b> the canola index uses soybean oil as a proxy for '
             'canola oil and likely <b>understates</b> true canola crush returns, since canola oil trades at a '
-            'premium. Paste a canola oil cash price in the sidebar to replace the soy oil leg. '
+            'premium. Enter a canola oil cash price in the oil override above to replace the soy oil leg. '
             'Canola ¢/bu is CAD-denominated (margin ÷ 55.1155) while soy is USD; both are shown as '
             'specified for direct comparison. The 0.75 protein factor is applied to the 60% meal term.</div>',
             unsafe_allow_html=True)
@@ -189,7 +191,7 @@ if df.spread.notna().any():
                marker_color=[JPSI_BLUE if v >= 0 else RED for v in df.spread.fillna(0)])
     st.plotly_chart(style(f2, 300), width="stretch")
 else:
-    st.info("Enter a seed price (sidebar) to see the canola − soy spread.")
+    st.info("Enter a seed price (above) to see the canola − soy spread.")
 
 st.markdown('<div class="sh">Sensitivity — effect on canola margin (latest day)</div>', unsafe_allow_html=True)
 if has_canola:
