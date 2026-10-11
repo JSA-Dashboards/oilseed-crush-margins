@@ -1,0 +1,289 @@
+basis,product,period,partial,destination,tonnes
+calendar,Canola seed,2023,False,All markets,7087606.0
+calendar,Canola seed,2023,False,China (People's Republic of),4594550.0
+calendar,Canola seed,2023,False,Japan,1008763.0
+calendar,Canola seed,2023,False,Pakistan,0.0
+calendar,Canola seed,2023,False,Mexico,841041.0
+calendar,Canola seed,2023,False,France,37497.0
+calendar,Canola seed,2023,False,Germany,20972.0
+calendar,Canola seed,2023,False,United Arab Emirates,222704.0
+calendar,Canola seed,2023,False,United States,326396.0
+calendar,Canola seed,2023,False,Bangladesh,0.0
+calendar,Canola seed,2023,False,Belgium,30698.0
+calendar,Canola seed,2023,False,Others,4985.0
+calendar,Canola seed,2024,False,All markets,8728193.0
+calendar,Canola seed,2024,False,China (People's Republic of),5928585.0
+calendar,Canola seed,2024,False,Japan,1007135.0
+calendar,Canola seed,2024,False,Pakistan,0.0
+calendar,Canola seed,2024,False,Mexico,599688.0
+calendar,Canola seed,2024,False,France,173505.0
+calendar,Canola seed,2024,False,Germany,60300.0
+calendar,Canola seed,2024,False,United Arab Emirates,349281.0
+calendar,Canola seed,2024,False,United States,277391.0
+calendar,Canola seed,2024,False,Bangladesh,35628.0
+calendar,Canola seed,2024,False,Belgium,160389.0
+calendar,Canola seed,2024,False,Others,136291.0
+calendar,Canola seed,2025,False,All markets,7627979.0
+calendar,Canola seed,2025,False,China (People's Republic of),2133369.0
+calendar,Canola seed,2025,False,Japan,1739089.0
+calendar,Canola seed,2025,False,Pakistan,165128.0
+calendar,Canola seed,2025,False,Mexico,1046383.0
+calendar,Canola seed,2025,False,France,621262.0
+calendar,Canola seed,2025,False,Germany,158687.0
+calendar,Canola seed,2025,False,United Arab Emirates,389342.0
+calendar,Canola seed,2025,False,United States,134557.0
+calendar,Canola seed,2025,False,Bangladesh,358043.0
+calendar,Canola seed,2025,False,Belgium,178120.0
+calendar,Canola seed,2025,False,Others,703999.0
+calendar,Canola seed,2026 (JAN TO MAY),True,All markets,4501124.0
+calendar,Canola seed,2026 (JAN TO MAY),True,China (People's Republic of),1543855.0
+calendar,Canola seed,2026 (JAN TO MAY),True,Japan,740230.0
+calendar,Canola seed,2026 (JAN TO MAY),True,Pakistan,470656.0
+calendar,Canola seed,2026 (JAN TO MAY),True,Mexico,449029.0
+calendar,Canola seed,2026 (JAN TO MAY),True,France,305925.0
+calendar,Canola seed,2026 (JAN TO MAY),True,Germany,189526.0
+calendar,Canola seed,2026 (JAN TO MAY),True,United Arab Emirates,155631.0
+calendar,Canola seed,2026 (JAN TO MAY),True,United States,154443.0
+calendar,Canola seed,2026 (JAN TO MAY),True,Bangladesh,135653.0
+calendar,Canola seed,2026 (JAN TO MAY),True,Belgium,120912.0
+calendar,Canola seed,2026 (JAN TO MAY),True,Others,235264.0
+calendar,Canola oil,2023,False,All markets,3262298.0
+calendar,Canola oil,2023,False,United States,2962228.0
+calendar,Canola oil,2023,False,Mexico,120469.0
+calendar,Canola oil,2023,False,Peru,3.0
+calendar,Canola oil,2023,False,Korea (Rep. of),38780.0
+calendar,Canola oil,2023,False,Spain,0.0
+calendar,Canola oil,2023,False,Colombia,1464.0
+calendar,Canola oil,2023,False,Chile,85.0
+calendar,Canola oil,2023,False,Malaysia,0.0
+calendar,Canola oil,2023,False,Nepal,0.0
+calendar,Canola oil,2023,False,Japan,8777.0
+calendar,Canola oil,2023,False,Others,130494.0
+calendar,Canola oil,2024,False,All markets,3523219.0
+calendar,Canola oil,2024,False,United States,3362476.0
+calendar,Canola oil,2024,False,Mexico,85117.0
+calendar,Canola oil,2024,False,Peru,0.0
+calendar,Canola oil,2024,False,Korea (Rep. of),39086.0
+calendar,Canola oil,2024,False,Spain,0.0
+calendar,Canola oil,2024,False,Colombia,698.0
+calendar,Canola oil,2024,False,Chile,20.0
+calendar,Canola oil,2024,False,Malaysia,1144.0
+calendar,Canola oil,2024,False,Nepal,0.0
+calendar,Canola oil,2024,False,Japan,5170.0
+calendar,Canola oil,2024,False,Others,29509.0
+calendar,Canola oil,2025,False,All markets,3223577.0
+calendar,Canola oil,2025,False,United States,2469907.0
+calendar,Canola oil,2025,False,Mexico,230768.0
+calendar,Canola oil,2025,False,Peru,43507.0
+calendar,Canola oil,2025,False,Korea (Rep. of),136743.0
+calendar,Canola oil,2025,False,Spain,12012.0
+calendar,Canola oil,2025,False,Colombia,9635.0
+calendar,Canola oil,2025,False,Chile,48570.0
+calendar,Canola oil,2025,False,Malaysia,44361.0
+calendar,Canola oil,2025,False,Nepal,0.0
+calendar,Canola oil,2025,False,Japan,6585.0
+calendar,Canola oil,2025,False,Others,221490.0
+calendar,Canola oil,2026 (JAN TO MAY),True,All markets,1464893.0
+calendar,Canola oil,2026 (JAN TO MAY),True,United States,1262131.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Mexico,72515.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Peru,39518.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Korea (Rep. of),37010.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Spain,28022.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Colombia,8069.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Chile,7045.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Malaysia,5004.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Nepal,2422.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Japan,1590.0
+calendar,Canola oil,2026 (JAN TO MAY),True,Others,1568.0
+calendar,Canola meal,2023,False,All markets,5454555.0
+calendar,Canola meal,2023,False,United States,3601496.0
+calendar,Canola meal,2023,False,China (People's Republic of),1849751.0
+calendar,Canola meal,2023,False,Thailand,0.0
+calendar,Canola meal,2023,False,Viet-Nam,0.0
+calendar,Canola meal,2023,False,Spain,0.0
+calendar,Canola meal,2023,False,New Zealand,0.0
+calendar,Canola meal,2023,False,Colombia,0.0
+calendar,Canola meal,2023,False,Indonesia,0.0
+calendar,Canola meal,2023,False,Mexico,829.0
+calendar,Canola meal,2023,False,Korea (Rep. of),13.0
+calendar,Canola meal,2023,False,Others,2466.0
+calendar,Canola meal,2024,False,All markets,5778941.0
+calendar,Canola meal,2024,False,United States,3770543.0
+calendar,Canola meal,2024,False,China (People's Republic of),2007540.0
+calendar,Canola meal,2024,False,Thailand,0.0
+calendar,Canola meal,2024,False,Viet-Nam,632.0
+calendar,Canola meal,2024,False,Spain,0.0
+calendar,Canola meal,2024,False,New Zealand,0.0
+calendar,Canola meal,2024,False,Colombia,0.0
+calendar,Canola meal,2024,False,Indonesia,0.0
+calendar,Canola meal,2024,False,Mexico,0.0
+calendar,Canola meal,2024,False,Korea (Rep. of),0.0
+calendar,Canola meal,2024,False,Others,225.0
+calendar,Canola meal,2025,False,All markets,5935429.0
+calendar,Canola meal,2025,False,United States,4134619.0
+calendar,Canola meal,2025,False,China (People's Republic of),736869.0
+calendar,Canola meal,2025,False,Thailand,35141.0
+calendar,Canola meal,2025,False,Viet-Nam,116234.0
+calendar,Canola meal,2025,False,Spain,225610.0
+calendar,Canola meal,2025,False,New Zealand,11729.0
+calendar,Canola meal,2025,False,Colombia,20764.0
+calendar,Canola meal,2025,False,Indonesia,5421.0
+calendar,Canola meal,2025,False,Mexico,5814.0
+calendar,Canola meal,2025,False,Korea (Rep. of),75514.0
+calendar,Canola meal,2025,False,Others,567713.0
+calendar,Canola meal,2026 (JAN TO MAY),True,All markets,2593117.0
+calendar,Canola meal,2026 (JAN TO MAY),True,United States,2111990.0
+calendar,Canola meal,2026 (JAN TO MAY),True,China (People's Republic of),282333.0
+calendar,Canola meal,2026 (JAN TO MAY),True,Thailand,78471.0
+calendar,Canola meal,2026 (JAN TO MAY),True,Viet-Nam,38970.0
+calendar,Canola meal,2026 (JAN TO MAY),True,Spain,30270.0
+calendar,Canola meal,2026 (JAN TO MAY),True,New Zealand,25832.0
+calendar,Canola meal,2026 (JAN TO MAY),True,Colombia,18705.0
+calendar,Canola meal,2026 (JAN TO MAY),True,Indonesia,5829.0
+calendar,Canola meal,2026 (JAN TO MAY),True,Mexico,717.0
+calendar,Canola meal,2026 (JAN TO MAY),True,Korea (Rep. of),0.0
+calendar,Canola meal,2026 (JAN TO MAY),True,Others,0.0
+crop,Canola seed,2022/23,False,All markets,7950185.0
+crop,Canola seed,2022/23,False,China (People's Republic of),4607522.0
+crop,Canola seed,2022/23,False,Japan,1101055.0
+crop,Canola seed,2022/23,False,Mexico,1208385.0
+crop,Canola seed,2022/23,False,Pakistan,267016.0
+crop,Canola seed,2022/23,False,France,123250.0
+crop,Canola seed,2022/23,False,Bangladesh,52583.0
+crop,Canola seed,2022/23,False,Germany,67953.0
+crop,Canola seed,2022/23,False,United Arab Emirates,168960.0
+crop,Canola seed,2022/23,False,Belgium,23423.0
+crop,Canola seed,2022/23,False,United States,318966.0
+crop,Canola seed,2022/23,False,Others,11071.0
+crop,Canola seed,2023/24,False,All markets,6810570.0
+crop,Canola seed,2023/24,False,China (People's Republic of),4859661.0
+crop,Canola seed,2023/24,False,Japan,808807.0
+crop,Canola seed,2023/24,False,Mexico,582298.0
+crop,Canola seed,2023/24,False,Pakistan,0.0
+crop,Canola seed,2023/24,False,France,0.0
+crop,Canola seed,2023/24,False,Bangladesh,992.0
+crop,Canola seed,2023/24,False,Germany,0.0
+crop,Canola seed,2023/24,False,United Arab Emirates,155718.0
+crop,Canola seed,2023/24,False,Belgium,91198.0
+crop,Canola seed,2023/24,False,United States,298719.0
+crop,Canola seed,2023/24,False,Others,13176.0
+crop,Canola seed,2024/25,False,All markets,9376018.0
+crop,Canola seed,2024/25,False,China (People's Republic of),4601908.0
+crop,Canola seed,2024/25,False,Japan,1724652.0
+crop,Canola seed,2024/25,False,Mexico,857777.0
+crop,Canola seed,2024/25,False,Pakistan,0.0
+crop,Canola seed,2024/25,False,France,530508.0
+crop,Canola seed,2024/25,False,Bangladesh,138396.0
+crop,Canola seed,2024/25,False,Germany,120200.0
+crop,Canola seed,2024/25,False,United Arab Emirates,567896.0
+crop,Canola seed,2024/25,False,Belgium,160009.0
+crop,Canola seed,2024/25,False,United States,141239.0
+crop,Canola seed,2024/25,False,Others,533434.0
+crop,Canola seed,2025/26 (AUG - MAY),True,All markets,7156875.0
+crop,Canola seed,2025/26 (AUG - MAY),True,China (People's Republic of),1762285.0
+crop,Canola seed,2025/26 (AUG - MAY),True,Japan,1379035.0
+crop,Canola seed,2025/26 (AUG - MAY),True,Mexico,883051.0
+crop,Canola seed,2025/26 (AUG - MAY),True,Pakistan,635784.0
+crop,Canola seed,2025/26 (AUG - MAY),True,France,570185.0
+crop,Canola seed,2025/26 (AUG - MAY),True,Bangladesh,389935.0
+crop,Canola seed,2025/26 (AUG - MAY),True,Germany,288313.0
+crop,Canola seed,2025/26 (AUG - MAY),True,United Arab Emirates,280672.0
+crop,Canola seed,2025/26 (AUG - MAY),True,Belgium,238912.0
+crop,Canola seed,2025/26 (AUG - MAY),True,United States,195442.0
+crop,Canola seed,2025/26 (AUG - MAY),True,Others,533260.0
+crop,Canola oil,2022/23,False,All markets,3018440.0
+crop,Canola oil,2022/23,False,United States,2600076.0
+crop,Canola oil,2022/23,False,Mexico,143456.0
+crop,Canola oil,2022/23,False,Korea (Rep. of),79087.0
+crop,Canola oil,2022/23,False,Chile,14821.0
+crop,Canola oil,2022/23,False,Spain,0.0
+crop,Canola oil,2022/23,False,Peru,34.0
+crop,Canola oil,2022/23,False,Netherlands,0.0
+crop,Canola oil,2022/23,False,Malaysia,0.0
+crop,Canola oil,2022/23,False,Colombia,3001.0
+crop,Canola oil,2022/23,False,Japan,16979.0
+crop,Canola oil,2022/23,False,Others,160985.0
+crop,Canola oil,2023/24,False,All markets,3425801.0
+crop,Canola oil,2023/24,False,United States,3283248.0
+crop,Canola oil,2023/24,False,Mexico,94893.0
+crop,Canola oil,2023/24,False,Korea (Rep. of),8123.0
+crop,Canola oil,2023/24,False,Chile,20.0
+crop,Canola oil,2023/24,False,Spain,0.0
+crop,Canola oil,2023/24,False,Peru,3.0
+crop,Canola oil,2023/24,False,Netherlands,0.0
+crop,Canola oil,2023/24,False,Malaysia,156.0
+crop,Canola oil,2023/24,False,Colombia,790.0
+crop,Canola oil,2023/24,False,Japan,4102.0
+crop,Canola oil,2023/24,False,Others,34465.0
+crop,Canola oil,2024/25,False,All markets,3312419.0
+crop,Canola oil,2024/25,False,United States,2685044.0
+crop,Canola oil,2024/25,False,Mexico,171148.0
+crop,Canola oil,2024/25,False,Korea (Rep. of),136976.0
+crop,Canola oil,2024/25,False,Chile,14544.0
+crop,Canola oil,2024/25,False,Spain,0.0
+crop,Canola oil,2024/25,False,Peru,43507.0
+crop,Canola oil,2024/25,False,Netherlands,20024.0
+crop,Canola oil,2024/25,False,Malaysia,33309.0
+crop,Canola oil,2024/25,False,Colombia,8572.0
+crop,Canola oil,2024/25,False,Japan,8216.0
+crop,Canola oil,2024/25,False,Others,191080.0
+crop,Canola oil,2025/26 (AUG - MAY),True,All markets,2868702.0
+crop,Canola oil,2025/26 (AUG - MAY),True,United States,2451028.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Mexico,165261.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Korea (Rep. of),75844.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Chile,41071.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Spain,40034.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Peru,39518.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Netherlands,18598.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Malaysia,17044.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Colombia,9195.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Japan,2928.0
+crop,Canola oil,2025/26 (AUG - MAY),True,Others,8183.0
+crop,Canola meal,2022/23,False,All markets,5317757.0
+crop,Canola meal,2022/23,False,United States,3479952.0
+crop,Canola meal,2022/23,False,China (People's Republic of),1829398.0
+crop,Canola meal,2022/23,False,Netherlands,0.0
+crop,Canola meal,2022/23,False,Spain,0.0
+crop,Canola meal,2022/23,False,Thailand,0.0
+crop,Canola meal,2022/23,False,Viet-Nam,0.0
+crop,Canola meal,2022/23,False,United Kingdom,7000.0
+crop,Canola meal,2022/23,False,Korea (Rep. of),13.0
+crop,Canola meal,2022/23,False,Colombia,0.0
+crop,Canola meal,2022/23,False,New Zealand,0.0
+crop,Canola meal,2022/23,False,Others,1394.0
+crop,Canola meal,2023/24,False,All markets,5651541.0
+crop,Canola meal,2023/24,False,United States,3617396.0
+crop,Canola meal,2023/24,False,China (People's Republic of),2031534.0
+crop,Canola meal,2023/24,False,Netherlands,0.0
+crop,Canola meal,2023/24,False,Spain,0.0
+crop,Canola meal,2023/24,False,Thailand,0.0
+crop,Canola meal,2023/24,False,Viet-Nam,0.0
+crop,Canola meal,2023/24,False,United Kingdom,0.0
+crop,Canola meal,2023/24,False,Korea (Rep. of),0.0
+crop,Canola meal,2023/24,False,Colombia,0.0
+crop,Canola meal,2023/24,False,New Zealand,0.0
+crop,Canola meal,2023/24,False,Others,2611.0
+crop,Canola meal,2024/25,False,All markets,5874784.0
+crop,Canola meal,2024/25,False,United States,3969343.0
+crop,Canola meal,2024/25,False,China (People's Republic of),1614591.0
+crop,Canola meal,2024/25,False,Netherlands,58251.0
+crop,Canola meal,2024/25,False,Spain,46019.0
+crop,Canola meal,2024/25,False,Thailand,502.0
+crop,Canola meal,2024/25,False,Viet-Nam,53880.0
+crop,Canola meal,2024/25,False,United Kingdom,80050.0
+crop,Canola meal,2024/25,False,Korea (Rep. of),0.0
+crop,Canola meal,2024/25,False,Colombia,0.0
+crop,Canola meal,2024/25,False,New Zealand,0.0
+crop,Canola meal,2024/25,False,Others,52148.0
+crop,Canola meal,2025/26 (AUG - MAY),True,All markets,5144379.0
+crop,Canola meal,2025/26 (AUG - MAY),True,United States,3887528.0
+crop,Canola meal,2025/26 (AUG - MAY),True,China (People's Republic of),284335.0
+crop,Canola meal,2025/26 (AUG - MAY),True,Netherlands,217310.0
+crop,Canola meal,2025/26 (AUG - MAY),True,Spain,209861.0
+crop,Canola meal,2025/26 (AUG - MAY),True,Thailand,113111.0
+crop,Canola meal,2025/26 (AUG - MAY),True,Viet-Nam,101956.0
+crop,Canola meal,2025/26 (AUG - MAY),True,United Kingdom,76970.0
+crop,Canola meal,2025/26 (AUG - MAY),True,Korea (Rep. of),75514.0
+crop,Canola meal,2025/26 (AUG - MAY),True,Colombia,39469.0
+crop,Canola meal,2025/26 (AUG - MAY),True,New Zealand,37560.0
+crop,Canola meal,2025/26 (AUG - MAY),True,Others,100765.0

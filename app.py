@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import canada
 import store
 from margins import (canola_margin_cad, canola_margin_cents_bu, load_history,
                      load_history_snowflake, soy_margin_cents_bu)
@@ -37,6 +38,12 @@ except Exception:
     api_key = ""
 
 # ── Inputs ────────────────────────────────────────────────────────────────────
+view = st.segmented_control("View", ["Crush margins", "Canadian industry"], default="Crush margins",
+                            key="view", label_visibility="collapsed")
+if view == "Canadian industry":
+    canada.render()
+    st.stop()
+
 c1, c2, c3, c4 = st.columns([1.3, 1.3, 1.3, 1])
 with c1:
     legs = st.radio("Canola oil & meal legs", ["Soy futures proxy", "Fastmarkets cash"],
