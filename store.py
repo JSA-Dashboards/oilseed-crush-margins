@@ -31,6 +31,18 @@ def diagnostics() -> dict:
     pem = _secret("SNOWFLAKE_PRIVATE_KEY")
     if pem:
         out["key has BEGIN/END lines"] = "BEGIN PRIVATE KEY" in pem and "END PRIVATE KEY" in pem
+        try:
+            import base64
+            import hashlib
+            from cryptography.hazmat.primitives import serialization
+
+            key = serialization.load_pem_private_key(pem.replace("\\n", "\n").encode(), password=None)
+            der = key.public_key().public_bytes(serialization.Encoding.DER,
+                                                serialization.PublicFormat.SubjectPublicKeyInfo)
+            out["secret key fingerprint"] = "SHA256:" + base64.b64encode(hashlib.sha256(der).digest()).decode()
+            out["expected fingerprint"] = "SHA256:Blf290JSyGe6TNUJbhG65dl9gLqT9edXF5xrScHG8Tc="
+        except Exception as exc:
+            out["secret key fingerprint"] = f"(could not parse key: {type(exc).__name__})"
     if configured():
         try:
             conn = _connect()
