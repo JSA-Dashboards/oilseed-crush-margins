@@ -31,6 +31,14 @@ def diagnostics() -> dict:
     pem = _secret("SNOWFLAKE_PRIVATE_KEY")
     if pem:
         out["key has BEGIN/END lines"] = "BEGIN PRIVATE KEY" in pem and "END PRIVATE KEY" in pem
+        lines = [ln for ln in pem.replace("\\n", "\n").splitlines()]
+        body = [ln.strip() for ln in lines if ln.strip() and "-----" not in ln]
+        alphabet = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+        bad = [f"line {i + 1} col {j + 1}: char code {ord(c)}"
+               for i, ln in enumerate(body) for j, c in enumerate(ln) if c not in alphabet][:5]
+        out["key shape"] = (f"{len(pem)} chars, {len(lines)} lines, {len(body)} body lines "
+                            f"(a 2048-bit key is about 1700 chars / 28 lines); "
+                            f"non-base64 characters: {bad or 'none'}")
         try:
             import base64
             import hashlib
