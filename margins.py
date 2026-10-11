@@ -64,28 +64,37 @@ def _front_series(schedule, hist: dict) -> pd.Series:
     return pd.concat(parts).sort_index() if parts else pd.Series(dtype=float)
 
 
-def load_history(api_key: str, start: date, end: date) -> pd.DataFrame:
-    """Daily front-month ZS (¢/bu), ZM ($/st), ZL (¢/lb), USDCAD from Massive."""
+def _needed_tickers(start: date, end: date):
+    """{(product, letter, year): ticker} for every contract whose front window touches [start, end]."""
     soy = _schedule(SOY_MONTH_NUM, start, end)
     fx = _schedule(FX_MONTH_NUM, start, end)
-    jobs = {}
-    for l, y, _ in soy:
-        d = y % 10
-        jobs[("ZS", l, y)] = f"ZS{l}{d}"
-        jobs[("ZM", l, y)] = f"ZM{SOY_PAIRS[l]}{d}"
-        jobs[("ZL", l, y)] = f"ZL{SOY_PAIRS[l]}{d}"
-    for l, y, _ in fx:
-        jobs[("6C", l, y)] = f"6C{l}{y % 10}"
-
-    # only fetch contracts whose front window can touch [start, end]
     wanted = {}
-    for prod, sched in (("soy", soy), ("fx", fx)):
+    for prods, sched in ((("ZS", "ZM", "ZL"), soy), (("6C",), fx)):
         prev = date(1900, 1, 1)
         for l, y, roll in sched:
             if roll >= start and prev <= end:
-                for p in (("ZS", "ZM", "ZL") if prod == "soy" else ("6C",)):
-                    wanted[(p, l, y)] = jobs[(p, l, y)]
+                for p in prods:
+                    letter = SOY_PAIRS[l] if p in ("ZM", "ZL") else l
+                    wanted[(p, l, y)] = f"{p}{letter}{y % 10}"
             prev = roll
+    return soy, fx, wanted
+
+
+def _assemble(soy, fx, got: dict, start: date, end: date) -> pd.DataFrame:
+    def build(p, sched):
+        return _front_series([((p, l, y), roll) for l, y, roll in sched], got)
+
+    df = pd.DataFrame({"ZS": build("ZS", soy), "ZM": build("ZM", soy),
+                       "ZL": build("ZL", soy), "6C": build("6C", fx)})
+    df.index = pd.to_datetime(df.index)
+    df = df[(df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))].dropna()
+    df["USDCAD"] = 1.0 / df["6C"]
+    return df.drop(columns="6C")
+
+
+def load_history(api_key: str, start: date, end: date) -> pd.DataFrame:
+    """Daily front-month ZS (¢/bu), ZM ($/st), ZL (¢/lb), USDCAD straight from Massive."""
+    soy, fx, wanted = _needed_tickers(start, end)
 
     def fetch(item):
         k, t = item
@@ -96,14 +105,18 @@ def load_history(api_key: str, start: date, end: date) -> pd.DataFrame:
 
     with ThreadPoolExecutor(8) as pool:
         got = dict(pool.map(fetch, wanted.items()))
+    return _assemble(soy, fx, got, start, end)
 
-    def build(p, sched):
-        s2 = [((p, l, y), roll) for l, y, roll in sched]
-        return _front_series(s2, got)
 
-    df = pd.DataFrame({"ZS": build("ZS", soy), "ZM": build("ZM", soy),
-                       "ZL": build("ZL", soy), "6C": build("6C", fx)})
-    df.index = pd.to_datetime(df.index)
-    df = df[(df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))].dropna()
-    df["USDCAD"] = 1.0 / df["6C"]
-    return df.drop(columns="6C")
+def load_history_snowflake(start: date, end: date, fetch_rows) -> pd.DataFrame:
+    """Same frame, from JSA.COST_OF_CARRY.FUTURES_SETTLEMENTS (filled daily by the droplet).
+
+    fetch_rows(start) -> DataFrame[ticker, date, settle]."""
+    soy, fx, wanted = _needed_tickers(start, end)
+    rows = fetch_rows(start - pd.Timedelta(days=45).to_pytimedelta())
+    by_ticker = {t: g.set_index("date")["settle"].sort_index() for t, g in rows.groupby("ticker")}
+    got = {k: by_ticker.get(t, pd.Series(dtype=float)) for k, t in wanted.items()}
+    for s in got.values():
+        if len(s):
+            s.index = [pd.Timestamp(d).date() for d in s.index]
+    return _assemble(soy, fx, got, start, end)

@@ -9,8 +9,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from margins import (canola_margin_cad, canola_margin_cents_bu,
-                     load_history, soy_margin_cents_bu)
+import store
+from margins import (canola_margin_cad, canola_margin_cents_bu, load_history,
+                     load_history_snowflake, soy_margin_cents_bu)
 
 JPSI_DARK, JPSI_BLUE, ORANGE, RED = "#32373c", "#0693e3", "#e8833a", "#d64545"
 LOGO_URL = "https://www.jpsi.com/wp-content/themes/gate39media/img/logo-full.png"
@@ -50,25 +51,37 @@ with st.sidebar:
                                    help="Replaces the soy oil leg in the canola margin (latest day).")
     st.markdown("---")
     months = st.slider("History (months)", 3, 14, 12)
-    if not api_key:
+    if not api_key and not store.configured():
         api_key = st.text_input("Massive API Key", type="password")
 
-if not api_key:
-    st.info("Enter your Massive API key in the sidebar.")
+use_sf = store.configured()
+if not use_sf and not api_key:
+    st.info("Add the Snowflake secrets (preferred) or enter a Massive API key in the sidebar.")
     st.stop()
 
 
 @st.cache_data(ttl=900, show_spinner="Loading ZS / ZM / ZL / CAD history…")
-def _hist(key: str, n_months: int, as_of: str) -> pd.DataFrame:
+def _hist(key: str, n_months: int, as_of: str, snowflake: bool) -> pd.DataFrame:
     end = date.fromisoformat(as_of)
-    return load_history(key, end - timedelta(days=int(n_months * 30.5)), end)
+    start = end - timedelta(days=int(n_months * 30.5))
+    if snowflake:
+        return load_history_snowflake(start, end, store.fetch_settlements)
+    return load_history(key, start, end)
 
 
+source = "Snowflake settlement archive" if use_sf else "Massive API (direct)"
 try:
-    df = _hist(api_key, months, date.today().isoformat())
+    df = _hist(api_key, months, date.today().isoformat(), use_sf)
+    if df.empty and use_sf:        # archive unreachable/empty -> fall back to Massive if we can
+        raise RuntimeError("settlement archive returned no rows")
 except Exception as exc:
-    st.error(f"Massive API error: {exc}")
-    st.stop()
+    if use_sf and api_key:
+        st.warning(f"Snowflake read failed ({exc}); using Massive directly.")
+        source = "Massive API (direct, Snowflake fallback)"
+        df = _hist(api_key, months, date.today().isoformat(), False)
+    else:
+        st.error(f"Data error: {exc}")
+        st.stop()
 if df.empty:
     st.warning("No history returned.")
     st.stop()
@@ -109,7 +122,7 @@ has_canola = pd.notna(last["canola"])
 oil_note = (f"canola cash override {oil_override:.2f} ¢/lb" if oil_override > 0
             else "soy oil (ZL) proxy")
 st.caption(f"Data as of settle **{df.index[-1]:%b %d, %Y}** · loaded {datetime.now():%b %d %H:%M} · "
-           f"canola oil leg: {oil_note}")
+           f"canola oil leg: {oil_note} · source: {source}")
 
 c = st.columns(6)
 c[0].metric("Soy board crush", f"{last.soy:.1f} ¢/bu")

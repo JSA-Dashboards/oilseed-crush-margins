@@ -1,0 +1,54 @@
+"""Read futures settlements from Snowflake (JSA.COST_OF_CARRY.FUTURES_SETTLEMENTS).
+
+The droplet's daily settlement-archive job keeps this table current, so the app needs no
+Massive key and makes one small query instead of ~25 API calls. Credentials are the
+fleet-standard SNOWFLAKE_* Streamlit secrets; a read-only role is all it needs.
+"""
+from __future__ import annotations
+
+import pandas as pd
+import streamlit as st
+
+PRODUCTS = ("ZS", "ZM", "ZL", "6C")
+
+
+def _secret(name: str, default: str = "") -> str:
+    try:
+        return str(st.secrets.get(name, default) or default)
+    except Exception:
+        return default
+
+
+def configured() -> bool:
+    return bool(_secret("SNOWFLAKE_ACCOUNT") and _secret("SNOWFLAKE_USER")
+                and _secret("SNOWFLAKE_PRIVATE_KEY"))
+
+
+def _connect():
+    import snowflake.connector
+    from cryptography.hazmat.primitives import serialization
+
+    pem = _secret("SNOWFLAKE_PRIVATE_KEY").replace("\n", "\n").encode()
+    pwd = _secret("SNOWFLAKE_PRIVATE_KEY_PWD") or None
+    key = serialization.load_pem_private_key(pem, password=pwd.encode() if pwd else None)
+    der = key.private_bytes(serialization.Encoding.DER, serialization.PrivateFormat.PKCS8,
+                            serialization.NoEncryption())
+    return snowflake.connector.connect(
+        account=_secret("SNOWFLAKE_ACCOUNT"), user=_secret("SNOWFLAKE_USER"),
+        role=_secret("SNOWFLAKE_ROLE", "OILSEED_CRUSH_ROLE"),
+        warehouse=_secret("SNOWFLAKE_WAREHOUSE", "COMPUTE_WH"),
+        database="JSA", schema="COST_OF_CARRY", private_key=der)
+
+
+def fetch_settlements(since) -> pd.DataFrame:
+    """ticker / date / settle for ZS, ZM, ZL, 6C from `since` forward."""
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT TICKER, DATE, SETTLE FROM FUTURES_SETTLEMENTS "
+            f"WHERE PRODUCT_CODE IN ({','.join(['%s'] * len(PRODUCTS))}) AND DATE >= %s",
+            (*PRODUCTS, since))
+        return pd.DataFrame(cur.fetchall(), columns=["ticker", "date", "settle"])
+    finally:
+        conn.close()
