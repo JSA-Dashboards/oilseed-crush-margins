@@ -48,7 +48,6 @@ def diagnostics() -> dict:
             der = key.public_key().public_bytes(serialization.Encoding.DER,
                                                 serialization.PublicFormat.SubjectPublicKeyInfo)
             out["secret key fingerprint"] = "SHA256:" + base64.b64encode(hashlib.sha256(der).digest()).decode()
-            out["expected fingerprint"] = "SHA256:Blf290JSyGe6TNUJbhG65dl9gLqT9edXF5xrScHG8Tc="
         except Exception as exc:
             out["secret key fingerprint"] = f"(could not parse key: {type(exc).__name__})"
     if configured():
