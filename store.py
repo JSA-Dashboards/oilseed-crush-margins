@@ -19,6 +19,29 @@ def _secret(name: str, default: str = "") -> str:
         return default
 
 
+def diagnostics() -> dict:
+    """Which Snowflake secret names the app can see (names only, never values), plus a live test."""
+    names = ["SNOWFLAKE_ACCOUNT", "SNOWFLAKE_USER", "SNOWFLAKE_ROLE", "SNOWFLAKE_WAREHOUSE",
+             "SNOWFLAKE_PRIVATE_KEY"]
+    out = {n: bool(_secret(n)) for n in names}
+    try:
+        out["top-level secret names seen"] = ", ".join(sorted(str(k) for k in st.secrets.keys())) or "(none)"
+    except Exception as exc:
+        out["top-level secret names seen"] = f"(unreadable: {type(exc).__name__})"
+    pem = _secret("SNOWFLAKE_PRIVATE_KEY")
+    if pem:
+        out["key has BEGIN/END lines"] = "BEGIN PRIVATE KEY" in pem and "END PRIVATE KEY" in pem
+    if configured():
+        try:
+            conn = _connect()
+            conn.cursor().execute("SELECT 1")
+            conn.close()
+            out["login test"] = "OK"
+        except Exception as exc:
+            out["login test"] = f"FAILED: {str(exc)[:160]}"
+    return out
+
+
 def configured() -> bool:
     return bool(_secret("SNOWFLAKE_ACCOUNT") and _secret("SNOWFLAKE_USER")
                 and _secret("SNOWFLAKE_PRIVATE_KEY"))

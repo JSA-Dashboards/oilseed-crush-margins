@@ -216,6 +216,10 @@ if has_canola:
 else:
     st.info("Enter a seed price to compute sensitivities.")
 
+with st.expander("Connection check"):
+    st.caption("Which Snowflake secrets this app can see (names only, never values).")
+    st.json(store.diagnostics())
+
 with st.expander("Data & export"):
     st.dataframe(df.round(4).sort_index(ascending=False), width="stretch")
     st.download_button("Download CSV", df.to_csv().encode(), "oilseed_crush_margins.csv", "text/csv")
