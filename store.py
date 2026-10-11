@@ -52,3 +52,21 @@ def fetch_settlements(since) -> pd.DataFrame:
         return pd.DataFrame(cur.fetchall(), columns=["ticker", "date", "settle"])
     finally:
         conn.close()
+
+
+def fetch_canola_cash(since) -> pd.DataFrame:
+    """Daily Fastmarkets canola cash: oil (fob Los Angeles, ¢/lb) and meal (fob Velva ND, $/short ton)."""
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT DATE, SYMBOL, MID FROM CANOLA_CASH WHERE DATE >= %s "
+                    "AND SYMBOL IN ('AG-RPS-0001','AG-RPS-0003')", (since,))
+        raw = pd.DataFrame(cur.fetchall(), columns=["date", "symbol", "mid"])
+    finally:
+        conn.close()
+    if raw.empty:
+        return pd.DataFrame(columns=["oil", "meal"])
+    out = raw.pivot(index="date", columns="symbol", values="mid").rename(
+        columns={"AG-RPS-0001": "oil", "AG-RPS-0003": "meal"})
+    out.index = pd.to_datetime(out.index)
+    return out.sort_index()

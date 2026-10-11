@@ -45,6 +45,9 @@ with st.sidebar:
     seed_now = st.number_input("Seed, CAD/mt (latest settle)", min_value=0.0, value=0.0, step=1.0)
     seed_file = st.file_uploader("Seed history CSV", type="csv")
     st.markdown("---")
+    st.markdown("**Canola oil & meal legs**")
+    legs = st.radio("Price canola oil & meal off", ["Soy futures proxy", "Fastmarkets cash"],
+                    help="Cash = canola oil fob Los Angeles (¢/lb) and canola meal fob Velva ND ($/short ton).")
     st.markdown("**Canola oil override**")
     oil_override = st.number_input("Canola oil cash, ¢/lb (0 = use soy oil)", min_value=0.0,
                                    value=0.0, step=0.25,
@@ -107,22 +110,40 @@ if len(seed):
 else:
     seed = pd.Series(float("nan"), index=df.index)
 
+# ── Canola legs: soy proxy, or Fastmarkets cash ───────────────────────────────
+cash_note = ""
+df["c_oil"], df["c_meal"] = df["ZL"], df["ZM"]
+if legs == "Fastmarkets cash":
+    try:
+        cash = store.fetch_canola_cash(df.index[0].date() - timedelta(days=10))
+        cash = cash.reindex(cash.index.union(df.index)).ffill().reindex(df.index)
+        if cash.dropna().empty:
+            raise RuntimeError("no rows")
+        df["c_oil"], df["c_meal"] = cash["oil"], cash["meal"]
+        df = df.dropna(subset=["c_oil", "c_meal"])
+        cash_note = f"Fastmarkets cash (oil {df['c_oil'].iloc[-1]:.2f} ¢/lb, meal ${df['c_meal'].iloc[-1]:.1f}/st)"
+    except Exception as exc:
+        st.warning(f"Fastmarkets cash unavailable ({exc}); using soy proxy. The Snowflake role needs "
+                   "SELECT on JSA.COST_OF_CARRY.CANOLA_CASH.")
+        legs = "Soy futures proxy"
+        df["c_oil"], df["c_meal"] = df["ZL"], df["ZM"]
+
 # ── Margins ───────────────────────────────────────────────────────────────────
 df["soy"] = [soy_margin_cents_bu(r.ZL, r.ZM, r.ZS) for r in df.itertuples()]
-oil = df["ZL"].copy()
+oil = df["c_oil"].copy()
 if oil_override > 0:
     oil.iloc[-1] = oil_override
 df["seed"] = seed
-df["canola"] = [canola_margin_cents_bu(o, r.ZM, r.USDCAD, r.seed) if pd.notna(r.seed) else float("nan")
+df["canola"] = [canola_margin_cents_bu(o, r.c_meal, r.USDCAD, r.seed) if pd.notna(r.seed) else float("nan")
                 for o, r in zip(oil, df.itertuples())]
 df["spread"] = df["canola"] - df["soy"]
 last = df.iloc[-1]
 has_canola = pd.notna(last["canola"])
 
-oil_note = (f"canola cash override {oil_override:.2f} ¢/lb" if oil_override > 0
-            else "soy oil (ZL) proxy")
+oil_note = (f"canola oil override {oil_override:.2f} ¢/lb" if oil_override > 0
+            else cash_note if legs == "Fastmarkets cash" else "soy oil (ZL) + soy meal (ZM) proxy")
 st.caption(f"Data as of settle **{df.index[-1]:%b %d, %Y}** · loaded {datetime.now():%b %d %H:%M} · "
-           f"canola oil leg: {oil_note} · source: {source}")
+           f"canola legs: {oil_note} · source: {source}")
 
 c = st.columns(6)
 c[0].metric("Soy board crush", f"{last.soy:.1f} ¢/bu")
@@ -133,7 +154,12 @@ c[3].metric("ZL / ZM", f"{last.ZL:.2f}¢ / ${last.ZM:.1f}")
 c[4].metric("ZS", f"{last.ZS / 100:.4f} $/bu")
 c[5].metric("USD/CAD", f"{last.USDCAD:.4f}")
 
-st.markdown('<div class="note"><b>Proxy caveat:</b> the canola index uses soybean oil as a proxy for '
+if legs == "Fastmarkets cash":
+    st.markdown('<div class="note"><b>Cash legs:</b> canola oil is fob Los Angeles and canola meal fob Velva ND '
+                '(Fastmarkets spot assessments), so this is an indicator rather than any single plant margin. '
+                'Canola ¢/bu is CAD-denominated (margin ÷ 55.1155); soy is USD.</div>', unsafe_allow_html=True)
+else:
+  st.markdown('<div class="note"><b>Proxy caveat:</b> the canola index uses soybean oil as a proxy for '
             'canola oil and likely <b>understates</b> true canola crush returns, since canola oil trades at a '
             'premium. Paste a canola oil cash price in the sidebar to replace the soy oil leg. '
             'Canola ¢/bu is CAD-denominated (margin ÷ 55.1155) while soy is USD; both are shown as '
@@ -167,11 +193,11 @@ else:
 
 st.markdown('<div class="sh">Sensitivity — effect on canola margin (latest day)</div>', unsafe_allow_html=True)
 if has_canola:
-    o0, m0, fx0, s0 = oil.iloc[-1], last.ZM, last.USDCAD, last.seed
+    o0, m0, fx0, s0 = oil.iloc[-1], last.c_meal, last.USDCAD, last.seed
     base = canola_margin_cents_bu(o0, m0, fx0, s0)
     rows = [
         ("Oil leg +1 ¢/lb", canola_margin_cents_bu(o0 + 1, m0, fx0, s0) - base),
-        ("Soy meal +$1/short ton", canola_margin_cents_bu(o0, m0 + 1, fx0, s0) - base),
+        ("Meal leg +$1/short ton", canola_margin_cents_bu(o0, m0 + 1, fx0, s0) - base),
         ("Canola seed +1 CAD/mt", canola_margin_cents_bu(o0, m0, fx0, s0 + 1) - base),
         ("USD/CAD +1 cent (0.01)", canola_margin_cents_bu(o0, m0, fx0 + 0.01, s0) - base),
     ]
