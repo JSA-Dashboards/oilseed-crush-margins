@@ -114,7 +114,7 @@ def render_history() -> None:
     ui.metric(c[1], "Soybean basis", f"${last.basis:.2f}/bu" if pd.notna(last.basis) else "—",
               f"{last.basis - prev.basis:+.2f} vs prior week" if pd.notna(last.basis) and pd.notna(prev.basis) else None)
     ui.metric(c[2], "Breakeven", f"${last.breakeven:.2f}/bu" if pd.notna(last.breakeven) else "—",
-              sub="margin above breakeven: " + (f"${last.cash_crush - last.breakeven:+.2f}" if pd.notna(last.breakeven) else "—"))
+              sub="margin above breakeven: " + (f"{'+' if last.cash_crush >= last.breakeven else '-'}${abs(last.cash_crush - last.breakeven):.2f}" if pd.notna(last.breakeven) else "—"))
     ui.metric(c[3], "Same week last year", f"${yago.cash_crush:.2f}/bu",
               f"{last.cash_crush - yago.cash_crush:+.2f} this year vs then", sub=f"{yago.date:%b %d, %Y}")
     ui.metric(c[4], "5-year average, same week", f"${avg5:.2f}/bu" if pd.notna(avg5) else "—",
@@ -137,8 +137,8 @@ def render_history() -> None:
     since = st.select_slider("Since", options=[2009, 2012, 2015, 2018, 2020, 2022, 2024],
                              value=2018, key="cc_since")
     st.plotly_chart(_crush_vs_basis(d, pd.Timestamp(f"{since}-01-01")), width="stretch")
-    st.caption("The breakeven line is the analyst's fixed $/bu operating-cost line carried in the report "
-               "($0.40 through mid-2024; $0.70 in the 2026 reports).")
+    st.caption("The breakeven line is the analyst's fixed operating-cost line carried in the report "
+               "(\\$0.40/bu through mid-2024; \\$0.70/bu in the 2026 reports).")
 
     ui.sec("Inputs, where the archive holds them")
     inp = d.dropna(subset=["cash_ysb", "meal_hipro", "oil_bo"])

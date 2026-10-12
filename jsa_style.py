@@ -121,7 +121,14 @@ def note(html: str) -> None:
     st.markdown(f'<div class="note">{html}</div>', unsafe_allow_html=True)
 
 
+def _esc(text) -> str:
+    """A dollar sign pair in markdown opens an inline-maths span (the dollar signs vanish); an entity is safe."""
+    return str(text).replace("$", "&#36;")
+
+
 def tile_html(label: str, value: str, delta: str | None = None, sub: str = "", color: str | None = None) -> str:
+    label, value, sub = _esc(label), _esc(value), _esc(sub)
+    delta = _esc(delta) if delta else delta
     style = f' style="border-top-color:{color}"' if color else ""
     d = ""
     if delta:
