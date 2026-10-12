@@ -136,3 +136,28 @@ def fetch_cash_crush() -> pd.DataFrame:
                                                      "cash_ysb", "meal_hipro", "oil_bo", "source"])
     finally:
         conn.close()
+
+
+def fetch_ams_feed() -> pd.DataFrame:
+    """Weekly AMS processor-feedstuff prices (soybean meal / oil, canola meal) by region."""
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT REPORT_DATE, COMMODITY, TRADE_LOC, PROTEIN, TRANS_MODE, PRICE_UNIT, PRICE_MIN, PRICE_MAX, "
+                    "AVG_PRICE FROM AMS_FEEDSTUFF")
+        return pd.DataFrame(cur.fetchall(), columns=["report_date", "commodity", "trade_loc", "protein", "trans_mode",
+                                                     "price_unit", "price_min", "price_max", "avg_price"])
+    finally:
+        conn.close()
+
+
+def fetch_ams_bean_weeks() -> pd.DataFrame:
+    """Nearby soybean bids averaged by Monday week, state and delivery point (aggregated in Snowflake)."""
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT STATE, DATE_TRUNC('WEEK', REPORT_DATE) AS WEEK, DELIVERY_POINT, AVG(AVG_PRICE) AS BEAN, "
+                    "COUNT(*) AS N FROM AMS_BEAN_BIDS WHERE CURRENT_FLAG = 'Yes' GROUP BY 1, 2, 3")
+        return pd.DataFrame(cur.fetchall(), columns=["state", "week", "delivery_point", "bean", "n"])
+    finally:
+        conn.close()

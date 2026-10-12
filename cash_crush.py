@@ -13,6 +13,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import ams_model as am
 import jsa_style as ui
 import store
 
@@ -40,17 +41,17 @@ def load() -> pd.DataFrame | None:
     d = _raw()
     if d is None:
         return None
-    d = d.sort_values("date").reset_index(drop=True)
+    return with_crop_year(d.sort_values("date").reset_index(drop=True))
+
+
+def with_crop_year(d: pd.DataFrame) -> pd.DataFrame:
+    """Add crop_year (Oct-Sep), day_of_cy and plot_date (every year drawn on one Oct-Sep calendar)."""
+    d = d.copy()
     start_year = np.where(d["date"].dt.month >= 10, d["date"].dt.year, d["date"].dt.year - 1)
     d["crop_year"] = [f"{y}/{(y + 1) % 100:02d}" for y in start_year]
     d["crop_start"] = pd.to_datetime([f"{y}-10-01" for y in start_year])
     d["day_of_cy"] = (d["date"] - d["crop_start"]).dt.days
-    # plot every crop year on one 2000/01 calendar (Oct-Dec 2000, Jan-Sep 2001); Feb 29 -> Feb 28
-    ref = []
-    for dt_, k in zip(d["date"], d["day_of_cy"]):
-        base = pd.Timestamp("2000-10-01") + pd.Timedelta(days=int(k))
-        ref.append(base)
-    d["plot_date"] = ref
+    d["plot_date"] = [pd.Timestamp("2000-10-01") + pd.Timedelta(days=int(k)) for k in d["day_of_cy"]]
     return d
 
 
@@ -159,5 +160,133 @@ def render_history() -> None:
                    "time and the workbook looks to have been revised since.")
 
 
+@st.cache_data(ttl=3600, show_spinner="Loading USDA AMS prices…")
+def _ams():
+    if not store.configured():
+        return None, None
+    try:
+        return store.fetch_ams_feed(), store.fetch_ams_bean_weeks()
+    except Exception as exc:
+        return str(exc), None
+
+
+REGION_COLORS = {"Illinois": ui.SAGE, "Iowa": ui.CLAY, "Indiana": ui.BLUE, "Ohio": ui.PURPLE, "Minnesota": "#d9a441"}
+
+
+def render_regional() -> None:
+    feed, beans = _ams()
+    if feed is None or beans is None or isinstance(feed, str):
+        st.error("The USDA AMS tables are not available to this app yet"
+                 + (f" ({feed})" if isinstance(feed, str) else "")
+                 + ". It reads JSA.COST_OF_CARRY.AMS_FEEDSTUFF and AMS_BEAN_BIDS; the Snowflake role needs SELECT on both.")
+        return
+    c1, c2, c3 = st.columns([2.2, 1.4, 1.4])
+    names = c1.multiselect("Regions", list(am.REGIONS), default=list(am.REGIONS), key="rg_regions")
+    basis_label = c2.radio("AMS price used", list(am.PRICE_BASES), key="rg_basis",
+                           help="Low end tracks JSA's Decatur series best (see the check below).")
+    mode = c3.radio("Meal delivery (IL, IN, OH)", ["Truck", "Rail"], horizontal=True, key="rg_mode")
+    basis = am.PRICE_BASES[basis_label]
+    if not names:
+        st.info("Pick at least one region.")
+        return
+    models = {n: am.region_crush(feed, beans, am.REGIONS[n], mode if n in ("Illinois", "Indiana", "Ohio") else None, basis)
+              for n in names}
+    models = {n: m for n, m in models.items() if len(m)}
+    if not models:
+        st.warning("No overlapping AMS weeks for the chosen regions.")
+        return
+    latest = max(m.index.max() for m in models.values())
+    ui.asof(f"USDA AMS report week of <b>{latest:%A, %b %d, %Y}</b>. Regional cash crush = meal × 0.022 + oil × 0.11 "
+            f"− the nearby soybean bid, the same arithmetic as JSA's Central Illinois report, with AMS inputs "
+            f"({basis_label.lower()}).")
+    tiles = st.columns(len(models))
+    for col, (n, m) in zip(tiles, models.items()):
+        last, prev = m.iloc[-1], (m.iloc[-2] if len(m) > 1 else None)
+        ui.metric(col, f"{n} cash crush", f"${last.crush:.2f}/bu",
+                  f"{last.crush - prev.crush:+.2f} vs prior week" if prev is not None else None,
+                  sub=f"meal ${last.meal:,.0f} · oil {last.oil:.1f}¢ · beans ${last.bean:.2f}", color=REGION_COLORS.get(n))
+
+    ui.sec("Weekly regional cash crush")
+    since = st.select_slider("Since", options=[2022, 2023, 2024, 2025, 2026], value=2022, key="rg_since")
+    fig = go.Figure()
+    for n, m in models.items():
+        s = m[m.index >= pd.Timestamp(f"{since}-01-01")]
+        fig.add_scatter(x=s.index, y=s.crush, name=n, line=dict(color=REGION_COLORS.get(n), width=2),
+                        hovertemplate=n + "<br>%{x|%b %d, %Y}<br>$%{y:.2f}/bu<extra></extra>")
+    st.plotly_chart(ui.style_fig(fig, 400, "Cash crush, $/bu"), width="stretch")
+
+    ui.sec("Latest week by region")
+    rows = []
+    for n, m in models.items():
+        r = m.iloc[-1]
+        rows.append({"Region": n, "Week": m.index[-1].date(), "Meal $/ton": r.meal, "Oil ¢/lb": r.oil, "Beans $/bu": r.bean,
+                     "Meal value $/bu": r.meal_value, "Oil value $/bu": r.oil_value, "Cash crush $/bu": r.crush,
+                     "Meal source": m.attrs.get("meal_mode")})
+    tbl = pd.DataFrame(rows).sort_values("Cash crush $/bu", ascending=False)
+    ui.table(tbl.style.format({"Meal $/ton": "{:,.1f}", "Oil ¢/lb": "{:.2f}", "Beans $/bu": "{:.2f}",
+                               "Meal value $/bu": "{:.2f}", "Oil value $/bu": "{:.2f}", "Cash crush $/bu": "{:.2f}"}),
+             hide_index=True, width="stretch")
+    notes = [f"{am.REGIONS[n].name}: {am.REGIONS[n].note}" for n in models if am.REGIONS[n].note]
+    if notes:
+        st.caption(" · ".join(notes) + ".")
+
+    if len(models) > 1 and "Illinois" in models:
+        ui.sec("Spread to Illinois")
+        f2 = go.Figure()
+        for n, m in models.items():
+            if n == "Illinois":
+                continue
+            j = m.crush.to_frame("x").join(models["Illinois"].crush.rename("il"), how="inner")
+            s = (j.x - j.il)[j.index >= pd.Timestamp(f"{since}-01-01")]
+            f2.add_scatter(x=s.index, y=s, name=f"{n} − Illinois", line=dict(color=REGION_COLORS.get(n), width=1.8))
+        f2.add_hline(y=0, line_color=ui.DM_MUTED, line_width=1)
+        st.plotly_chart(ui.style_fig(f2, 300, "$/bu"), width="stretch")
+
+    ui.sec("Seasonal pattern by crop year")
+    pick = st.selectbox("Region", list(models), key="rg_season")
+    sm = models[pick].reset_index().rename(columns={"week": "date", "crush": "cash_crush"})
+    sm = with_crop_year(sm)
+    ys = sorted(sm.crop_year.unique())
+    sel = st.multiselect("Crop years", ys, default=ys[-5:], key="rg_years")
+    if sel:
+        st.plotly_chart(_seasonal(sm, sorted(sel), sorted(sel)[-1], True), width="stretch")
+
+    ui.sec("Check against JSA's Central Illinois series")
+    jsa = load()
+    if jsa is not None and "Illinois" in models:
+        matched, stats = am.validate(models["Illinois"], jsa)
+        if stats:
+            c = st.columns(4)
+            ui.metric(c[0], "Weeks compared", f"{stats['n']}", sub=f"{stats['first']:%b %Y} to {stats['last']:%b %Y}")
+            ui.metric(c[1], "Correlation", f"{stats['corr']:.2f}")
+            ui.metric(c[2], "AMS model vs JSA, average", f"{stats['mean_diff']:+.2f} $/bu")
+            ui.metric(c[3], "Typical weekly miss", f"${stats['mae']:.2f}/bu", sub="mean absolute difference")
+            f3 = go.Figure()
+            f3.add_scatter(x=matched.date, y=matched.cash_crush, name="JSA Central Illinois (Decatur)",
+                           line=dict(color=ui.SAGE, width=2))
+            f3.add_scatter(x=matched.date, y=matched.crush, name="AMS Illinois model", line=dict(color=ui.CLAY, width=2))
+            st.plotly_chart(ui.style_fig(f3, 340, "Cash crush, $/bu"), width="stretch")
+            st.caption("JSA's series uses Decatur cash beans, Hi-Pro meal rail cash and a median bean oil price; the AMS "
+                       "model uses AMS's published weekly ranges and the Central Illinois processor bid. They agree on "
+                       "direction and most of the level; compare regions with each other, and use JSA's own series for "
+                       "the Decatur level.")
+
+    ui.sec("How this is built")
+    st.markdown(
+        "- **Meal and oil:** USDA AMS National Grain and Oilseed Processor Feedstuff Report (weekly), asking-price "
+        "ranges by region. *Low end* takes the bottom of each range.\n"
+        "- **Soybeans:** the nearby bid at mills and processors from each state's AMS grain-bid report, averaged over "
+        "the week (Minnesota: average country-elevator bid, since no processor bid is reported).\n"
+        "- **History:** AMS provides meal and oil from February 2022 and processor bids from July 2020 in this feed; "
+        "the series cannot be extended back from here.\n"
+        "- **Refresh:** a droplet job banks the AMS reports into Snowflake daily; USDA's feed is weekly for meal and "
+        "oil, so the newest week appears once AMS publishes it.")
+
+
 def render() -> None:
-    render_history()
+    view = st.segmented_control("Cash crush view", ["Central Illinois (JSA history)", "Regional model (USDA AMS)"],
+                                default="Central Illinois (JSA history)", key="cc_view", label_visibility="collapsed")
+    if view == "Regional model (USDA AMS)":
+        render_regional()
+    else:
+        render_history()
