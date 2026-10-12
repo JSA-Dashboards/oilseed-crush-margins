@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import canola_seed_view
 import cash_crush
 import canada
 import jsa_style as ui
@@ -20,7 +21,7 @@ from margins import (canola_margin_cad, canola_margin_cents_bu, load_history,
 st.set_page_config(page_title="Oilseeds Crush Margins · JPSI", page_icon=":material/bar_chart:", layout="wide")
 ui.inject_css()
 ui.header("Oilseeds Crush Margins",
-          "Canola and soybean crush margins, Central Illinois cash crush, Canadian industry &middot; "
+          "Canola and soybean crush margins, canola seed seasonals, Central Illinois cash crush, Canadian industry &middot; "
           "John Stewart &amp; Associates")
 
 try:
@@ -29,8 +30,12 @@ except Exception:
     api_key = ""
 
 # ── Inputs ────────────────────────────────────────────────────────────────────
-view = st.segmented_control("View", ["Crush margins", "Cash crush", "Canadian industry"], default="Crush margins",
-                            key="view", label_visibility="collapsed")
+view = st.segmented_control("View", ["Crush margins", "Canola seed", "Cash crush", "Canadian industry"],
+                            default="Crush margins", key="view", label_visibility="collapsed")
+if view == "Canola seed":
+    canola_seed_view.render()
+    ui.disclaimer()
+    st.stop()
 if view == "Cash crush":
     cash_crush.render()
     ui.disclaimer()
