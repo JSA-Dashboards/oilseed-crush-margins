@@ -44,7 +44,7 @@ contract and day, and it warns when the workbook's newest date is more than 3 we
 It is only as fresh as the last time the workbook was **refreshed in Excel and saved**. To automate,
 schedule it a little after whoever refreshes the workbook (weekdays 5:00 pm):
 
-    schtasks /Create /TN "Canola Workbook Load" /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 17:00 /TR "python C:\path	o\collector\workbook_canola.py"
+    schtasks /Create /TN "Canola Workbook Load" /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 17:00 /TR "python C:\path\to\collector\workbook_canola.py"
 
 **Before Nov 1:** the workbook has no RSF27 column yet. RSX26 stops being the front contract on
 Nov 1, so add RSF27 (then RSH27, RSK27, ...) as new columns in the Barchart tab, next to the others,
