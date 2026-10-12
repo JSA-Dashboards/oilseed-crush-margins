@@ -112,3 +112,14 @@ def fetch_canola_cash(since) -> pd.DataFrame:
         columns={"AG-RPS-0001": "oil", "AG-RPS-0003": "meal"})
     out.index = pd.to_datetime(out.index)
     return out.sort_index()
+
+
+def fetch_ice_settles(since) -> pd.DataFrame:
+    """Per-contract ICE canola settles (CAD/mt) banked daily by the QST collector."""
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT TICKER, DATE, SETTLE FROM ICE_CANOLA_SETTLES WHERE DATE >= %s", (since,))
+        return pd.DataFrame(cur.fetchall(), columns=["ticker", "date", "settle"])
+    finally:
+        conn.close()

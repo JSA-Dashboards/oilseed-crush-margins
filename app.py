@@ -11,6 +11,7 @@ import streamlit as st
 
 import canada
 import store
+import margins
 from margins import (canola_margin_cad, canola_margin_cents_bu, load_history,
                      load_history_snowflake, soy_margin_cents_bu)
 
@@ -101,6 +102,17 @@ _BUNDLED = Path(__file__).parent / "canola_seed_history.csv"
 if _BUNDLED.exists():
     _b = pd.read_csv(_BUNDLED, parse_dates=["date"]).set_index("date")["close"].astype(float)
     seed = _b.sort_index()
+seed_note = "bundled history"
+if use_sf and seed_file is None:
+    try:        # live ICE canola settles banked by the QST collector extend the bundled history
+        _live = margins.front_seed_series(store.fetch_ice_settles((seed.index.max() - timedelta(days=7)).date()
+                                                                  if len(seed) else date(2018, 9, 1)))
+        _live = _live[_live.index > seed.index.max()] if len(seed) else _live
+        if len(_live):
+            seed = pd.concat([seed, _live]).sort_index()
+            seed_note = f"bundled history + live QST through {_live.index.max():%b %d}"
+    except Exception:
+        pass                                           # table not there yet / no grant: bundled only
 if seed_file is not None:
     try:
         raw = pd.read_csv(io.BytesIO(seed_file.getvalue()))
@@ -152,7 +164,7 @@ has_canola = pd.notna(last["canola"])
 oil_note = (f"canola oil override {oil_override:.2f} ¢/lb" if oil_override > 0
             else cash_note if legs == "Fastmarkets cash" else "soy oil (ZL) + soy meal (ZM) proxy")
 st.caption(f"Data as of settle **{df.index[-1]:%b %d, %Y}** · loaded {datetime.now():%b %d %H:%M} · "
-           f"canola legs: {oil_note} · source: {source}")
+           f"canola legs: {oil_note} · seed: {seed_note} · source: {source}")
 
 c = st.columns(6)
 c[0].metric("Soy board crush", f"{last.soy:.1f} ¢/bu")

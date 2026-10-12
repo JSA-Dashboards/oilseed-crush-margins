@@ -1,2 +1,4 @@
 .streamlit/secrets.toml
 __pycache__/
+collector/qst_canola_log.jsonl
+collector/.env

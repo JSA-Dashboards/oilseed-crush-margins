@@ -120,3 +120,25 @@ def load_history_snowflake(start: date, end: date, fetch_rows) -> pd.DataFrame:
         if len(s):
             s.index = [pd.Timestamp(d).date() for d in s.index]
     return _assemble(soy, fx, got, start, end)
+
+
+RS_MONTH_NUM = {"F": 1, "H": 3, "K": 5, "N": 7, "X": 11}
+
+
+def front_seed_series(rows: pd.DataFrame) -> pd.Series:
+    """Front-month ICE canola settles from per-contract rows [ticker, date, settle].
+
+    A contract is front until the 1st of its delivery month, the same roll rule the bundled
+    history uses, so the live series joins it without a step."""
+    if rows is None or rows.empty:
+        return pd.Series(dtype=float)
+    r = rows.copy()
+    r["date"] = pd.to_datetime(r["date"])
+
+    def roll(t: str) -> pd.Timestamp:
+        return pd.Timestamp(2000 + int(t[3:5]), RS_MONTH_NUM[t[2]], 1)
+
+    r["roll"] = r["ticker"].map(roll)
+    r = r[r["date"] < r["roll"]]                       # contract already delivering: not front
+    r = r.sort_values(["date", "roll"]).drop_duplicates("date", keep="first")
+    return r.set_index("date")["settle"].astype(float).sort_index()
