@@ -46,6 +46,4 @@ schedule it a little after whoever refreshes the workbook (weekdays 5:00 pm):
 
     schtasks /Create /TN "Canola Workbook Load" /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 17:00 /TR "python C:\path\to\collector\workbook_canola.py"
 
-**Before Nov 1:** the workbook has no RSF27 column yet. RSX26 stops being the front contract on
-Nov 1, so add RSF27 (then RSH27, RSK27, ...) as new columns in the Barchart tab, next to the others,
-or the live seed will stop at Oct 31. The loader picks new columns up automatically.
+**Keep the chain extended:** the workbook carries RSF27, RSH27, RSK27 and RSN27, so the Nov 1 roll from RSX26 to RSF27 has data. Each time a new contract starts trading (RSX27 next), add its column in the Barchart tab; the loader picks new columns up automatically. The seed history in the repo (`canola_seed_history.csv`, front month from Jul 2015) is rebuilt with `scripts/extract_canola_seed.py`.

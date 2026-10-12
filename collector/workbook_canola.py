@@ -65,7 +65,10 @@ def read_contracts(path: Path) -> pd.DataFrame:
         yr = last.year if last <= pd.Timestamp(last.year, MONTH[letter], 28) else last.year + 1
         ticker = f"RS{letter}{yr % 100:02d}"
         out.append(pd.DataFrame({"ticker": ticker, "date": s.index.date, "settle": s.values}))
-    return pd.concat(out, ignore_index=True) if out else pd.DataFrame(columns=["ticker", "date", "settle"])
+    if not out:
+        return pd.DataFrame(columns=["ticker", "date", "settle"])
+    # the workbook repeats some contract columns (F20/H20/K20/N20): one row per contract and day
+    return pd.concat(out, ignore_index=True).drop_duplicates(["ticker", "date"], keep="last")
 
 
 def merge(df: pd.DataFrame) -> int:
