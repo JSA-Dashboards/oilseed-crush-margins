@@ -111,3 +111,23 @@ def validate(model: pd.DataFrame, jsa: pd.DataFrame) -> tuple[pd.DataFrame, dict
     return m, {"n": int(len(m)), "corr": float(m["crush"].corr(m["cash_crush"])), "mean_diff": float(diff.mean()),
                "mae": float(diff.abs().mean()), "sd": float(diff.std()),
                "first": m["date"].min(), "last": m["date"].max()}
+
+
+def estimate_tail(model: pd.DataFrame, jsa: pd.DataFrame) -> pd.DataFrame:
+    """AMS-model weeks that JSA's own series does not cover yet, shaped like the JSA series so they can be
+    appended and drawn as a dotted estimate. Each AMS week (Monday) is dated to its Wednesday, the day JSA's
+    report is dated. JSA rows from a previous estimate are ignored, so real values replace estimates as soon as
+    they are loaded."""
+    real = jsa[jsa.get("source", "") != "ams_estimate"] if "source" in jsa.columns else jsa
+    real = real.dropna(subset=["cash_crush"])
+    last_real = pd.to_datetime(real["date"]).max()
+    m = model.reset_index().rename(columns={"week": "mon"})
+    m["date"] = m["mon"] + pd.Timedelta(days=2)
+    m = m[m["date"] > last_real]
+    if m.empty:
+        return m.iloc[0:0]
+    be = real.dropna(subset=["breakeven"]).sort_values("date")["breakeven"]
+    return pd.DataFrame({"date": m["date"], "location": "Decatur-Central Illinois, IL (AMS estimate)",
+                         "cash_crush": m["crush"].values, "basis": float("nan"),
+                         "breakeven": float(be.iloc[-1]) if len(be) else float("nan"), "cash_ysb": float("nan"),
+                         "meal_hipro": float("nan"), "oil_bo": float("nan"), "source": "ams_estimate"})

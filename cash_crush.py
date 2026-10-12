@@ -41,7 +41,18 @@ def load() -> pd.DataFrame | None:
     d = _raw()
     if d is None:
         return None
-    return with_crop_year(d.sort_values("date").reset_index(drop=True))
+    d = d.sort_values("date").reset_index(drop=True)
+    d["source"] = d["source"].fillna("pdf") if "source" in d.columns else "pdf"
+    try:                                  # weeks after JSA's last report: the AMS Illinois model, flagged as an estimate
+        feed, beans = _ams()
+        if feed is not None and beans is not None and not isinstance(feed, str):
+            model = am.region_crush(feed, beans, am.REGIONS["Illinois"], "Truck", "min")
+            tail = am.estimate_tail(model, d)
+            if len(tail):
+                d = pd.concat([d, tail], ignore_index=True)
+    except Exception:
+        pass
+    return with_crop_year(d)
 
 
 def with_crop_year(d: pd.DataFrame) -> pd.DataFrame:
@@ -63,9 +74,17 @@ def _seasonal(d: pd.DataFrame, years: list[str], current: str, show_avg: bool) -
         if s.empty:
             continue
         is_cur = cy == current
-        fig.add_scatter(x=s.plot_date, y=s.cash_crush, name=cy, mode="lines",
-                        line=dict(color=YEAR_COLORS[i % len(YEAR_COLORS)], width=3 if is_cur else 1.6),
+        color = YEAR_COLORS[i % len(YEAR_COLORS)]
+        est = s[s.source == "ams_estimate"] if "source" in s.columns else s.iloc[0:0]
+        real = s[s.source != "ams_estimate"] if "source" in s.columns else s
+        fig.add_scatter(x=real.plot_date, y=real.cash_crush, name=cy, mode="lines", legendgroup=cy,
+                        line=dict(color=color, width=3 if is_cur else 1.6),
                         hovertemplate=f"{cy}<br>%{{x|%b %d}}<br>$%{{y:.2f}}/bu<extra></extra>")
+        if len(est):                      # dotted continuation from the last real point
+            join = pd.concat([real.tail(1), est])
+            fig.add_scatter(x=join.plot_date, y=join.cash_crush, name=f"{cy} (AMS estimate)", mode="lines+markers",
+                            legendgroup=cy, showlegend=False, line=dict(color=color, width=3 if is_cur else 1.6, dash="dot"),
+                            marker=dict(size=5), hovertemplate=f"{cy} AMS estimate<br>%{{x|%b %d}}<br>$%{{y:.2f}}/bu<extra></extra>")
     if show_avg and len(prior) >= 2:
         sub = d[d.crop_year.isin(prior)].dropna(subset=["cash_crush"]).copy()
         sub["wk"] = sub.day_of_cy // 7
@@ -82,8 +101,14 @@ def _seasonal(d: pd.DataFrame, years: list[str], current: str, show_avg: bool) -
 def _crush_vs_basis(d: pd.DataFrame, since: pd.Timestamp) -> go.Figure:
     s = d[d.date >= since]
     fig = go.Figure()
-    fig.add_scatter(x=s.date, y=s.cash_crush, name="Cash crush ($/bu)", line=dict(color=ui.SAGE, width=2.2))
-    fig.add_scatter(x=s.date, y=s.basis, name="Soybean basis ($/bu, right axis)", yaxis="y2",
+    real = s[s.source != "ams_estimate"]
+    est = s[s.source == "ams_estimate"]
+    fig.add_scatter(x=real.date, y=real.cash_crush, name="Cash crush ($/bu)", line=dict(color=ui.SAGE, width=2.2))
+    if len(est):
+        join = pd.concat([real.tail(1), est])
+        fig.add_scatter(x=join.date, y=join.cash_crush, name="Cash crush, AMS estimate", mode="lines+markers",
+                        line=dict(color=ui.SAGE, width=2.2, dash="dot"), marker=dict(size=5))
+    fig.add_scatter(x=real.date, y=real.basis, name="Soybean basis ($/bu, right axis)", yaxis="y2",
                     line=dict(color=ui.CLAY, width=1.8))
     be = s.dropna(subset=["breakeven"])
     fig.add_scatter(x=be.date, y=be.breakeven, name="Breakeven ($/bu)", line=dict(color=ui.GREY, width=1.6, dash="dot"))
@@ -100,19 +125,31 @@ def render_history() -> None:
         return
     last = d.dropna(subset=["cash_crush"]).iloc[-1]
     prev = d.dropna(subset=["cash_crush"]).iloc[-2]
+    real = d[d.source != "ams_estimate"].dropna(subset=["cash_crush"])
+    last_real = real.iloc[-1]
+    n_est = int((d.source == "ams_estimate").sum())
+    is_est = last.source == "ams_estimate"
     yago = d.dropna(subset=["cash_crush"])
     yago = yago[(yago.date <= last.date - pd.Timedelta(days=364))].iloc[-1]
     same_wk = d[(d.day_of_cy // 7 == last.day_of_cy // 7) & (d.crop_year != last.crop_year)].dropna(subset=["cash_crush"])
     avg5 = same_wk[same_wk.crop_year.isin(sorted(same_wk.crop_year.unique())[-5:])].cash_crush.mean()
 
-    ui.asof(f"Central Illinois (Decatur) weekly report of <b>{last.date:%A, %b %d, %Y}</b>. "
-            f"The analyst's weekly series, rebuilt from the Research Analyst archive: the workbook from Oct 2009 and "
-            f"the weekly PDFs from Jul 2024.")
+    ui.asof(f"Central Illinois (Decatur) weekly series. Latest JSA report: <b>{last_real.date:%A, %b %d, %Y}</b>, "
+            f"rebuilt from the Research Analyst archive (workbook from Oct 2009, weekly PDFs from Jul 2024)."
+            + (f" <b>The {n_est} week{'s' if n_est != 1 else ''} since, through {last.date:%b %d}, are USDA AMS model "
+               f"estimates</b> (dotted on the charts): the Illinois AMS crush tracked JSA's own series with a typical "
+               f"miss of about &#36;0.24/bu. They are replaced by JSA's numbers when the weekly reports are loaded."
+               if n_est else ""))
     c = st.columns(5)
-    ui.metric(c[0], "Cash crush, latest week", f"${last.cash_crush:.2f}/bu",
-              f"{last.cash_crush - prev.cash_crush:+.2f} vs prior week", sub=f"week of {last.date:%b %d}")
-    ui.metric(c[1], "Soybean basis", f"${last.basis:.2f}/bu" if pd.notna(last.basis) else "—",
-              f"{last.basis - prev.basis:+.2f} vs prior week" if pd.notna(last.basis) and pd.notna(prev.basis) else None)
+    ui.metric(c[0], "Cash crush, latest week" + (" (AMS estimate)" if is_est else ""), f"${last.cash_crush:.2f}/bu",
+              f"{last.cash_crush - prev.cash_crush:+.2f} vs prior week",
+              sub=f"week of {last.date:%b %d}" + (" · estimate, not a JSA report" if is_est else ""),
+              color=ui.CLAY if is_est else None)
+    prev_real = real.iloc[-2]
+    ui.metric(c[1], "Soybean basis", f"${last_real.basis:.2f}/bu" if pd.notna(last_real.basis) else "—",
+              f"{last_real.basis - prev_real.basis:+.2f} vs prior week"
+              if pd.notna(last_real.basis) and pd.notna(prev_real.basis) else None,
+              sub=f"JSA report of {last_real.date:%b %d}" if is_est else "")
     ui.metric(c[2], "Breakeven", f"${last.breakeven:.2f}/bu" if pd.notna(last.breakeven) else "—",
               sub="margin above breakeven: " + (f"{'+' if last.cash_crush >= last.breakeven else '-'}${abs(last.cash_crush - last.breakeven):.2f}" if pd.notna(last.breakeven) else "—"))
     ui.metric(c[3], "Same week last year", f"${yago.cash_crush:.2f}/bu",
@@ -253,6 +290,8 @@ def render_regional() -> None:
 
     ui.sec("Check against JSA's Central Illinois series")
     jsa = load()
+    if jsa is not None:
+        jsa = jsa[jsa.source != "ams_estimate"]
     if jsa is not None and "Illinois" in models:
         matched, stats = am.validate(models["Illinois"], jsa)
         if stats:

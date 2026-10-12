@@ -70,6 +70,23 @@ class ModelTests(unittest.TestCase):
         self.assertAlmostEqual(out.bean.iloc[0], 12.50, places=6)            # NW elevator excluded
         self.assertAlmostEqual(out.crush.iloc[0], 350 * 0.022 + 67 * 0.11 - 12.50, places=6)
 
+    def test_estimate_tail_starts_after_the_last_real_jsa_week_and_dates_to_wednesday(self):
+        feed = feed_rows()
+        model = am.region_crush(feed, bids(), am.REGIONS["Illinois"])          # weeks 2026-10-05 and 2026-10-12
+        jsa = pd.DataFrame({"date": pd.to_datetime(["2026-09-30", "2026-10-07"]), "cash_crush": [2.0, 2.1],
+                            "breakeven": [0.7, 0.7], "source": ["pdf", "pdf"]})
+        tail = am.estimate_tail(model, jsa)
+        self.assertEqual(list(tail.date.dt.strftime("%Y-%m-%d")), ["2026-10-14"])   # 10-07 is already real
+        self.assertEqual(tail.source.iloc[0], "ams_estimate")
+        self.assertEqual(tail.breakeven.iloc[0], 0.7)
+
+    def test_previous_estimates_do_not_block_new_real_data(self):
+        model = am.region_crush(feed_rows(), bids(), am.REGIONS["Illinois"])
+        jsa = pd.DataFrame({"date": pd.to_datetime(["2026-09-30", "2026-10-07", "2026-10-14"]),
+                            "cash_crush": [2.0, 2.1, 9.9], "breakeven": [0.7, 0.7, 0.7],
+                            "source": ["pdf", "pdf", "ams_estimate"]})
+        self.assertEqual(len(am.estimate_tail(model, jsa)), 1)           # the stale estimate row is not "real"
+
     def test_validate_matches_wednesday_to_its_monday_week(self):
         model = am.region_crush(feed_rows(), bids(), am.REGIONS["Illinois"])
         jsa = pd.DataFrame({"date": ["2026-10-07", "2026-10-14"], "cash_crush": [2.80, 2.95]})
