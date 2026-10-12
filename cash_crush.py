@@ -198,7 +198,7 @@ def render_regional() -> None:
     latest = max(m.index.max() for m in models.values())
     ui.asof(f"USDA AMS report week of <b>{latest:%A, %b %d, %Y}</b>. Regional cash crush = meal × 0.022 + oil × 0.11 "
             f"− the nearby soybean bid, the same arithmetic as JSA's Central Illinois report, with AMS inputs "
-            f"({basis_label.lower()}).")
+            f"(AMS price used: {basis_label}).")
     tiles = st.columns(len(models))
     for col, (n, m) in zip(tiles, models.items()):
         last, prev = m.iloc[-1], (m.iloc[-2] if len(m) > 1 else None)
