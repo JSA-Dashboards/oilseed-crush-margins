@@ -131,3 +131,76 @@ def estimate_tail(model: pd.DataFrame, jsa: pd.DataFrame) -> pd.DataFrame:
                          "cash_crush": m["crush"].values, "basis": float("nan"),
                          "breakeven": float(be.iloc[-1]) if len(be) else float("nan"), "cash_ysb": float("nan"),
                          "meal_hipro": float("nan"), "oil_bo": float("nan"), "source": "ams_estimate"})
+
+
+# ── backtest: AMS Illinois model against JSA's own Central Illinois reports ──────────────────────
+
+def matched_frame(model: pd.DataFrame, jsa: pd.DataFrame) -> pd.DataFrame:
+    """JSA report weeks joined to the AMS model, with the gap (AMS minus JSA) in $/bu."""
+    m, _ = validate(model, jsa)
+    if m.empty:
+        return m
+    m = m.rename(columns={"crush": "ams"}).sort_values("date").reset_index(drop=True)
+    m["gap"] = m["ams"] - m["cash_crush"]
+    return m
+
+
+def error_stats(x: pd.DataFrame) -> dict:
+    g = x["gap"]
+    return {"n": int(len(x)), "corr": float(x["ams"].corr(x["cash_crush"])) if len(x) > 2 else float("nan"),
+            "bias": float(g.mean()), "mae": float(g.abs().mean()), "rmse": float((g ** 2).mean() ** 0.5),
+            "within_10": float((g.abs() <= 0.10).mean()), "within_25": float((g.abs() <= 0.25).mean()),
+            "within_50": float((g.abs() <= 0.50).mean())}
+
+
+def stats_by(x: pd.DataFrame, key) -> pd.DataFrame:
+    rows = []
+    for k, g in x.groupby(key):
+        rows.append({"group": k, **error_stats(g)})
+    return pd.DataFrame(rows)
+
+
+def direction_stats(x: pd.DataFrame, min_move: float = 0.10) -> dict:
+    """Does the AMS model move the same way as JSA from one report to the next? Consecutive weeks only."""
+    y = x.copy()
+    y["d_ams"], y["d_jsa"] = y["ams"].diff(), y["cash_crush"].diff()
+    y = y[(y["date"].diff().dt.days <= 8)].dropna(subset=["d_ams", "d_jsa"])
+    if y.empty:
+        return {}
+    big = y[y["d_jsa"].abs() >= min_move]
+    same = lambda f: float((f["d_ams"].apply(lambda v: (v > 0) - (v < 0)) == f["d_jsa"].apply(lambda v: (v > 0) - (v < 0))).mean())
+    return {"n": int(len(y)), "same_sign": same(y), "change_corr": float(y["d_ams"].corr(y["d_jsa"])),
+            "n_big": int(len(big)), "same_sign_big": same(big) if len(big) else float("nan")}
+
+
+def horizon_table(x: pd.DataFrame, ks=(1, 2, 4, 6, 8), window: int = 8) -> pd.DataFrame:
+    """Error of the estimate k weeks after JSA's last known report, raw versus corrected by the trailing average gap."""
+    rows = []
+    for k in ks:
+        raw, adj = [], []
+        for i in range(len(x)):
+            j = i - k
+            if j < window - 1:
+                continue
+            bias = x["gap"].iloc[j - window + 1:j + 1].mean()
+            raw.append(abs(x["gap"].iloc[i]))
+            adj.append(abs(x["gap"].iloc[i] - bias))
+        if raw:
+            rows.append({"weeks": k, "n": len(raw), "raw": sum(raw) / len(raw), "adjusted": sum(adj) / len(adj)})
+    return pd.DataFrame(rows)
+
+
+def variant_table(feed, bids_weekly, jsa, split: str = "2024-01-01") -> pd.DataFrame:
+    """Each AMS price choice on the weeks before `split` (where it would have been chosen) and on the weeks after."""
+    rows = []
+    for basis, bl in (("min", "Low end"), ("avg", "Midpoint")):
+        for mode in ("Truck", "Rail"):
+            x = matched_frame(region_crush(feed, bids_weekly, REGIONS["Illinois"], mode, basis), jsa)
+            if x.empty:
+                continue
+            cal, test = x[x["date"] < split], x[x["date"] >= split]
+            rows.append({"variant": f"{bl}, {mode} meal", "cal_n": len(cal), "cal_mae": cal["gap"].abs().mean(),
+                         "test_n": len(test), "test_mae": test["gap"].abs().mean() if len(test) else float("nan"),
+                         "test_bias": test["gap"].mean() if len(test) else float("nan"),
+                         "test_corr": float(test["ams"].corr(test["cash_crush"])) if len(test) > 2 else float("nan")})
+    return pd.DataFrame(rows)

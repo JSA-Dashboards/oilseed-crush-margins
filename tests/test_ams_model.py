@@ -87,6 +87,24 @@ class ModelTests(unittest.TestCase):
                             "source": ["pdf", "pdf", "ams_estimate"]})
         self.assertEqual(len(am.estimate_tail(model, jsa)), 1)           # the stale estimate row is not "real"
 
+    def test_backtest_statistics(self):
+        x = pd.DataFrame({"date": pd.to_datetime(["2026-01-07", "2026-01-14", "2026-01-21", "2026-01-28"]),
+                          "cash_crush": [2.00, 2.20, 2.10, 2.40], "ams": [2.05, 2.10, 2.30, 2.40]})
+        x["gap"] = x.ams - x.cash_crush
+        s = am.error_stats(x)
+        self.assertAlmostEqual(s["bias"], (0.05 - 0.10 + 0.20 + 0.0) / 4, places=6)
+        self.assertAlmostEqual(s["mae"], (0.05 + 0.10 + 0.20 + 0.0) / 4, places=6)
+        self.assertEqual(s["within_25"], 1.0)
+        d = am.direction_stats(x)
+        # changes: JSA +.20 -.10 +.30, AMS +.05 +.20 +.10  ->  same sign on 2 of 3
+        self.assertAlmostEqual(d["same_sign"], 2 / 3, places=6)
+
+    def test_horizon_table_shapes(self):
+        x = pd.DataFrame({"gap": [0.1] * 30})
+        h = am.horizon_table(x, ks=(1, 4), window=8)
+        self.assertEqual(list(h.weeks), [1, 4])
+        self.assertTrue((h.adjusted.abs() < 1e-9).all())             # a constant bias is fully removed by the correction
+
     def test_validate_matches_wednesday_to_its_monday_week(self):
         model = am.region_crush(feed_rows(), bids(), am.REGIONS["Illinois"])
         jsa = pd.DataFrame({"date": ["2026-10-07", "2026-10-14"], "cash_crush": [2.80, 2.95]})

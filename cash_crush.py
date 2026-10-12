@@ -310,6 +310,75 @@ def render_regional() -> None:
                        "direction and most of the level; compare regions with each other, and use JSA's own series for "
                        "the Decatur level.")
 
+    ui.sec("Backtest: how the AMS Illinois model performed against JSA's reports")
+    if jsa is not None:
+        bt = am.matched_frame(am.region_crush(feed, beans, am.REGIONS["Illinois"], "Truck", "min"), jsa)
+        if len(bt) >= 20:
+            s, dr = am.error_stats(bt), am.direction_stats(bt)
+            c = st.columns(5)
+            ui.metric(c[0], "Weeks tested", f"{s['n']}", sub=f"{bt.date.min():%b %Y} to {bt.date.max():%b %Y}")
+            ui.metric(c[1], "Typical miss", f"${s['mae']:.2f}/bu", sub=f"average bias {s['bias']:+.2f}")
+            ui.metric(c[2], "Within $0.25 of JSA", f"{s['within_25'] * 100:.0f}% of weeks",
+                      sub=f"within $0.50: {s['within_50'] * 100:.0f}%")
+            ui.metric(c[3], "Level correlation", f"{s['corr']:.2f}")
+            ui.metric(c[4], "Moves the same way", f"{dr['same_sign'] * 100:.0f}% of weeks" if dr else "—",
+                      sub=(f"{dr['same_sign_big'] * 100:.0f}% when JSA moved $0.10 or more" if dr else ""))
+
+            by_year = am.stats_by(bt.assign(year=bt.date.dt.year), "year")
+            by_month = am.stats_by(bt.assign(month=bt.date.dt.month), "month")
+            c1, c2 = st.columns(2)
+            yt = by_year.rename(columns={"group": "Year", "n": "Weeks", "corr": "Correlation", "bias": "Bias $/bu",
+                                         "mae": "Typical miss $/bu", "within_25": "Within $0.25"})
+            yt["Within $0.25"] = yt["Within $0.25"] * 100
+            c1.markdown("**By year**")
+            with c1:
+                ui.table(yt[["Year", "Weeks", "Correlation", "Bias $/bu", "Typical miss $/bu", "Within $0.25"]].style.format(
+                    {"Correlation": "{:.2f}", "Bias $/bu": "{:+.2f}", "Typical miss $/bu": "{:.2f}", "Within $0.25": "{:.0f}%",
+                     "Year": "{:d}"}), hide_index=True, width="stretch")
+            c2.markdown("**Typical miss by month**")
+            mf = go.Figure(go.Bar(x=[pd.Timestamp(2000, int(m), 1).strftime("%b") for m in by_month["group"]],
+                                  y=by_month["mae"], marker_color=[ui.CLAY if m in (7, 8, 9, 11) else ui.SAGE for m in by_month["group"]],
+                                  hovertemplate="%{x}<br>$%{y:.2f}/bu<extra></extra>"))
+            with c2:
+                st.plotly_chart(ui.style_fig(mf, 230, "$/bu", legend=False, hovermode="closest"), width="stretch")
+
+            ui.sec("Weekly error: AMS minus JSA")
+            ef = go.Figure()
+            ef.add_hrect(y0=-0.25, y1=0.25, fillcolor=ui.GREY, opacity=0.25, line_width=0)
+            ef.add_scatter(x=bt.date, y=bt.gap, mode="lines+markers", name="AMS minus JSA",
+                           line=dict(color=ui.SAGE, width=1.6), marker=dict(size=4),
+                           hovertemplate="%{x|%b %d, %Y}<br>%{y:+.2f} $/bu<extra></extra>")
+            ef.add_hline(y=0, line_color=ui.DM_MUTED, line_width=1)
+            st.plotly_chart(ui.style_fig(ef, 280, "$/bu (shaded = within $0.25)", legend=False), width="stretch")
+
+            ui.sec("Which AMS price to use: chosen on 2022-23, tested on 2024 onward")
+            vt = am.variant_table(feed, beans, jsa)
+            vt = vt.rename(columns={"variant": "AMS price and meal", "cal_n": "Weeks 2022-23", "cal_mae": "Miss 2022-23",
+                                    "test_n": "Weeks 2024 on", "test_mae": "Miss 2024 on", "test_bias": "Bias 2024 on",
+                                    "test_corr": "Correlation 2024 on"})
+            ui.table(vt.style.format({"Miss 2022-23": "{:.2f}", "Miss 2024 on": "{:.2f}", "Bias 2024 on": "{:+.2f}",
+                                      "Correlation 2024 on": "{:.2f}"}), hide_index=True, width="stretch")
+            st.caption("The low end of AMS's range with truck meal was best on the 2022-23 weeks it would have been "
+                       "picked from, and held up on the later weeks it had not seen, so the choice is not a fit to the "
+                       "test data. The midpoint runs about $0.45/bu above JSA.")
+
+            ui.sec("How far past JSA's last report can the estimate be trusted?")
+            ht = am.horizon_table(bt)
+            ht = ht.rename(columns={"weeks": "Weeks after last JSA report", "n": "Cases", "raw": "Typical miss, as published",
+                                    "adjusted": "Typical miss if corrected for recent bias"})
+            ui.table(ht.style.format({"Typical miss, as published": "{:.2f}", "Typical miss if corrected for recent bias": "{:.2f}"}),
+                     hide_index=True, width="stretch")
+            st.caption("The estimate uses only AMS data, so its error does not grow the longer JSA's report is missing: "
+                       "about the same one week out or eight. Correcting it for the recent gap makes it worse, so the "
+                       "estimates shown are the model as is.")
+            st.markdown(
+                "**Where it is weaker:** July to September, when processors roll from old-crop to new-crop bids "
+                "(correlation 0.6 to 0.7 in those months against 0.93 to 0.99 from January to June and in October), and "
+                "in November and December, when it has run below JSA. Single weeks can miss by $0.70 or more, and "
+                "errors persist for a week or two (week-to-week correlation of the error 0.5).")
+        else:
+            st.info("Not enough overlapping weeks to backtest.")
+
     ui.sec("How this is built")
     st.markdown(
         "- **Meal and oil:** USDA AMS National Grain and Oilseed Processor Feedstuff Report (weekly), asking-price "
