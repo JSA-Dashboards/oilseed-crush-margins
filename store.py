@@ -123,3 +123,16 @@ def fetch_ice_settles(since) -> pd.DataFrame:
         return pd.DataFrame(cur.fetchall(), columns=["ticker", "date", "settle"])
     finally:
         conn.close()
+
+
+def fetch_cash_crush() -> pd.DataFrame:
+    """JSA's Central Illinois weekly cash crush series (JSA.COST_OF_CARRY.CASH_CRUSH_HISTORY)."""
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT DATE, LOCATION, CASH_CRUSH, BASIS, BREAKEVEN, CASH_YSB, MEAL_HIPRO, OIL_BO, SOURCE "
+                    "FROM CASH_CRUSH_HISTORY ORDER BY DATE")
+        return pd.DataFrame(cur.fetchall(), columns=["date", "location", "cash_crush", "basis", "breakeven",
+                                                     "cash_ysb", "meal_hipro", "oil_bo", "source"])
+    finally:
+        conn.close()

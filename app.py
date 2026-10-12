@@ -9,29 +9,19 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import cash_crush
 import canada
+import jsa_style as ui
 import store
 import margins
 from margins import (canola_margin_cad, canola_margin_cents_bu, load_history,
                      load_history_snowflake, soy_margin_cents_bu)
 
-JPSI_DARK, JPSI_BLUE, ORANGE, RED = "#32373c", "#0693e3", "#e8833a", "#d64545"
-LOGO_URL = "https://www.jpsi.com/wp-content/themes/gate39media/img/logo-full.png"
-
-st.set_page_config(page_title="Oilseeds Crush Margins · JPSI", layout="wide")
-st.markdown(f"""<style>
-header[data-testid="stHeader"]{{display:none}} footer{{visibility:hidden}}
-.block-container{{padding-top:.75rem;max-width:1280px}}
-.dash-header{{border-bottom:3px solid {JPSI_BLUE};padding:14px 8px;margin:-.75rem 0 14px;display:flex;align-items:center;gap:20px}}
-.dash-header img{{height:48px}} .dash-header h1{{margin:0;font-size:1.6rem;color:{JPSI_DARK}}}
-.dash-header .sub{{color:#6b7280;font-size:.85rem}}
-.sh{{font-weight:700;color:{JPSI_DARK};border-left:4px solid {JPSI_BLUE};padding:2px 0 2px 10px;margin:18px 0 8px}}
-.note{{background:rgba(232,131,58,.08);border:1px solid #f3d9c3;border-left:4px solid {ORANGE};
-border-radius:8px;padding:10px 16px;font-size:.9rem;color:{JPSI_DARK}}}
-</style>
-<div class="dash-header"><img src="{LOGO_URL}"><div><h1>Oilseeds Crush Margins</h1>
-<div class="sub">Canola crush vs. US soybean board crush · ¢ per bushel</div></div></div>""",
-            unsafe_allow_html=True)
+st.set_page_config(page_title="Oilseeds Crush Margins · JPSI", page_icon=":material/bar_chart:", layout="wide")
+ui.inject_css()
+ui.header("Oilseeds Crush Margins",
+          "Canola and soybean crush margins, Central Illinois cash crush, Canadian industry &middot; "
+          "John Stewart &amp; Associates")
 
 try:
     api_key = st.secrets.get("MASSIVE_API_KEY", "")
@@ -39,10 +29,15 @@ except Exception:
     api_key = ""
 
 # ── Inputs ────────────────────────────────────────────────────────────────────
-view = st.segmented_control("View", ["Crush margins", "Canadian industry"], default="Crush margins",
+view = st.segmented_control("View", ["Crush margins", "Cash crush", "Canadian industry"], default="Crush margins",
                             key="view", label_visibility="collapsed")
+if view == "Cash crush":
+    cash_crush.render()
+    ui.disclaimer()
+    st.stop()
 if view == "Canadian industry":
     canada.render()
+    ui.disclaimer()
     st.stop()
 
 c1, c2, c3, c4 = st.columns([1.3, 1.3, 1.3, 1])
@@ -163,56 +158,47 @@ has_canola = pd.notna(last["canola"])
 
 oil_note = (f"canola oil override {oil_override:.2f} ¢/lb" if oil_override > 0
             else cash_note if legs == "Fastmarkets cash" else "soy oil (ZL) + soy meal (ZM) proxy")
-st.caption(f"Data as of settle **{df.index[-1]:%b %d, %Y}** · loaded {datetime.now():%b %d %H:%M} · "
-           f"canola legs: {oil_note} · seed: {seed_note} · source: {source}")
+ui.asof(f"Data as of settle <b>{df.index[-1]:%b %d, %Y}</b> &middot; loaded {datetime.now():%b %d %H:%M} &middot; "
+        f"canola legs: {oil_note} &middot; seed: {seed_note} &middot; source: {source}")
 
 c = st.columns(6)
-c[0].metric("Soy board crush", f"{last.soy:.1f} ¢/bu")
-c[1].metric("Canola crush", f"{last.canola:.1f} ¢/bu" if has_canola else "—",
+ui.metric(c[0], "Soy board crush", f"{last.soy:.1f} ¢/bu")
+ui.metric(c[1], "Canola crush", f"{last.canola:.1f} ¢/bu" if has_canola else "—",
             None if has_canola else "enter seed price")
-c[2].metric("Canola − Soy", f"{last.spread:+.1f} ¢/bu" if has_canola else "—")
-c[3].metric("ZL / ZM", f"{last.ZL:.2f}¢ / ${last.ZM:.1f}")
-c[4].metric("ZS", f"{last.ZS / 100:.4f} $/bu")
-c[5].metric("USD/CAD", f"{last.USDCAD:.4f}")
+ui.metric(c[2], "Canola − Soy", f"{last.spread:+.1f} ¢/bu" if has_canola else "—")
+ui.metric(c[3], "ZL / ZM", f"{last.ZL:.2f}¢ / ${last.ZM:.1f}")
+ui.metric(c[4], "ZS", f"{last.ZS / 100:.4f} $/bu")
+ui.metric(c[5], "USD/CAD", f"{last.USDCAD:.4f}")
 
 if legs == "Fastmarkets cash":
-    st.markdown('<div class="note"><b>Cash legs:</b> canola oil is fob Los Angeles and canola meal fob Velva ND '
-                '(Fastmarkets spot assessments), so this is an indicator rather than any single plant margin. '
-                'Canola ¢/bu is CAD-denominated (margin ÷ 55.1155); soy is USD.</div>', unsafe_allow_html=True)
+    ui.note("<b>Cash legs:</b> canola oil is fob Los Angeles and canola meal fob Velva ND (Fastmarkets spot "
+            "assessments), so this is an indicator rather than any single plant margin. "
+            "Canola ¢/bu is CAD-denominated (margin ÷ 55.1155); soy is USD.")
 else:
-  st.markdown('<div class="note"><b>Proxy caveat:</b> the canola index uses soybean oil as a proxy for '
-            'canola oil and likely <b>understates</b> true canola crush returns, since canola oil trades at a '
-            'premium. Enter a canola oil cash price in the oil override above to replace the soy oil leg. '
-            'Canola ¢/bu is CAD-denominated (margin ÷ 55.1155) while soy is USD; both are shown as '
-            'specified for direct comparison. The 0.75 protein factor is applied to the 60% meal term.</div>',
-            unsafe_allow_html=True)
+    ui.note("<b>Proxy caveat:</b> the canola index uses soybean oil as a proxy for canola oil and likely "
+            "<b>understates</b> true canola crush returns, since canola oil trades at a premium. Enter a canola oil "
+            "cash price in the oil override above to replace the soy oil leg. Canola ¢/bu is CAD-denominated "
+            "(margin ÷ 55.1155) while soy is USD; both are shown as specified for direct comparison. The 0.75 "
+            "protein factor is applied to the 60% meal term.")
 
 
-def style(fig, h=380):
-    fig.update_layout(height=h, margin=dict(l=10, r=10, t=30, b=10), plot_bgcolor="#fff",
-                      paper_bgcolor="#fff", hovermode="x unified",
-                      legend=dict(orientation="h", y=1.1, x=0))
-    fig.update_yaxes(gridcolor="#f0f0f0", zeroline=True, zerolinecolor="#d1d5db")
-    return fig
-
-
-st.markdown('<div class="sh">Crush margins, ¢/bu</div>', unsafe_allow_html=True)
+ui.sec("Crush margins, ¢/bu")
 f1 = go.Figure()
-f1.add_scatter(x=df.index, y=df.soy, name="US soy crush", line=dict(color=JPSI_BLUE, width=2.5))
-f1.add_scatter(x=df.index, y=df.canola, name="Canola crush", line=dict(color=ORANGE, width=2.5),
+f1.add_scatter(x=df.index, y=df.soy, name="US soy crush", line=dict(color=ui.SAGE, width=2.5))
+f1.add_scatter(x=df.index, y=df.canola, name="Canola crush", line=dict(color=ui.CLAY, width=2.5),
                mode="lines+markers" if df.canola.notna().sum() < 3 else "lines")
-st.plotly_chart(style(f1), width="stretch")
+st.plotly_chart(ui.style_fig(f1, 380, "¢ per bushel"), width="stretch")
 
-st.markdown('<div class="sh">Spread: canola − soy, ¢/bu</div>', unsafe_allow_html=True)
+ui.sec("Spread: canola − soy, ¢/bu")
 if df.spread.notna().any():
     f2 = go.Figure()
     f2.add_bar(x=df.index, y=df.spread,
-               marker_color=[JPSI_BLUE if v >= 0 else RED for v in df.spread.fillna(0)])
-    st.plotly_chart(style(f2, 300), width="stretch")
+               marker_color=[ui.COL_POS if v >= 0 else ui.COL_NEG for v in df.spread.fillna(0)])
+    st.plotly_chart(ui.style_fig(f2, 300, "¢ per bushel", legend=False), width="stretch")
 else:
     st.info("Enter a seed price (above) to see the canola − soy spread.")
 
-st.markdown('<div class="sh">Sensitivity — effect on canola margin (latest day)</div>', unsafe_allow_html=True)
+ui.sec("Sensitivity: effect on canola margin (latest day)")
 if has_canola:
     o0, m0, fx0, s0 = oil.iloc[-1], last.c_meal, last.USDCAD, last.seed
     base = canola_margin_cents_bu(o0, m0, fx0, s0)
@@ -222,8 +208,8 @@ if has_canola:
         ("Canola seed +1 CAD/mt", canola_margin_cents_bu(o0, m0, fx0, s0 + 1) - base),
         ("USD/CAD +1 cent (0.01)", canola_margin_cents_bu(o0, m0, fx0 + 0.01, s0) - base),
     ]
-    st.dataframe(pd.DataFrame(rows, columns=["Move", "Δ canola margin (¢/bu)"]).style.format(
-        {"Δ canola margin (¢/bu)": "{:+.3f}"}), hide_index=True, width="stretch")
+    ui.table(pd.DataFrame(rows, columns=["Move", "Δ canola margin (¢/bu)"]).style.format(
+        {"Δ canola margin (¢/bu)": "{:+.3f}"}), "sens", hide_index=True, width="stretch")
     st.caption(f"Base canola margin {base:.1f} ¢/bu = {canola_margin_cad(o0, m0, fx0, s0):,.0f} CAD/mt.")
 else:
     st.info("Enter a seed price to compute sensitivities.")
@@ -233,5 +219,7 @@ with st.expander("Connection check"):
     st.json(store.diagnostics())
 
 with st.expander("Data & export"):
-    st.dataframe(df.round(4).sort_index(ascending=False), width="stretch")
+    ui.table(df.round(4).sort_index(ascending=False), "mdata", width="stretch")
     st.download_button("Download CSV", df.to_csv().encode(), "oilseed_crush_margins.csv", "text/csv")
+
+ui.disclaimer()
