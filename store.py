@@ -152,12 +152,13 @@ def fetch_ams_feed() -> pd.DataFrame:
 
 
 def fetch_ams_bean_weeks() -> pd.DataFrame:
-    """Nearby soybean bids averaged by Monday week, state and delivery point (aggregated in Snowflake)."""
+    """Nearby soybean bids averaged by Monday week, state, location and delivery point (aggregated in Snowflake)."""
     conn = _connect()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT STATE, DATE_TRUNC('WEEK', REPORT_DATE) AS WEEK, DELIVERY_POINT, AVG(AVG_PRICE) AS BEAN, "
-                    "COUNT(*) AS N FROM AMS_BEAN_BIDS WHERE CURRENT_FLAG = 'Yes' GROUP BY 1, 2, 3")
-        return pd.DataFrame(cur.fetchall(), columns=["state", "week", "delivery_point", "bean", "n"])
+        cur.execute("SELECT STATE, DATE_TRUNC('WEEK', REPORT_DATE) AS WEEK, TRADE_LOC, DELIVERY_POINT, "
+                    "AVG(AVG_PRICE) AS BEAN, COUNT(*) AS N FROM AMS_BEAN_BIDS WHERE CURRENT_FLAG = 'Yes' "
+                    "GROUP BY 1, 2, 3, 4")
+        return pd.DataFrame(cur.fetchall(), columns=["state", "week", "trade_loc", "delivery_point", "bean", "n"])
     finally:
         conn.close()

@@ -56,6 +56,20 @@ class ModelTests(unittest.TestCase):
         out = am.region_crush(feed_rows(), b, am.REGIONS["Illinois"])
         self.assertEqual(len(out), 1)
 
+    def test_nebraska_uses_iowa_meal_oil_and_only_its_eastern_elevators(self):
+        feed = pd.DataFrame([
+            dict(report_date="2026-10-05", commodity="Soybean Meal", trade_loc="Iowa", trans_mode="Truck/Rail", price_min=350.0, avg_price=360.0),
+            dict(report_date="2026-10-05", commodity="Soybean Oil", trade_loc="Iowa", trans_mode="Truck/Rail", price_min=67.0, avg_price=70.0),
+        ])
+        b = pd.DataFrame([
+            dict(state="NE", week="2026-10-05", trade_loc="East", delivery_point="Country Elevators", bean=12.40),
+            dict(state="NE", week="2026-10-05", trade_loc="Southeast", delivery_point="Country Elevators", bean=12.60),
+            dict(state="NE", week="2026-10-05", trade_loc="Northwest", delivery_point="Country Elevators", bean=11.00),
+        ])
+        out = am.region_crush(feed, b, am.REGIONS["Nebraska"])
+        self.assertAlmostEqual(out.bean.iloc[0], 12.50, places=6)            # NW elevator excluded
+        self.assertAlmostEqual(out.crush.iloc[0], 350 * 0.022 + 67 * 0.11 - 12.50, places=6)
+
     def test_validate_matches_wednesday_to_its_monday_week(self):
         model = am.region_crush(feed_rows(), bids(), am.REGIONS["Illinois"])
         jsa = pd.DataFrame({"date": ["2026-10-07", "2026-10-14"], "cash_crush": [2.80, 2.95]})

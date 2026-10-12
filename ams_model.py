@@ -32,6 +32,7 @@ class Region:
     bean_point: str                    # AMS delivery point the soybean bid is taken from
     meal_modes: tuple[str, ...]        # AMS transport modes carried for this region's meal, preferred first
     note: str = ""
+    bean_locs: tuple[str, ...] | None = None   # limit the bid to these AMS locations within the state (None = all)
 
 
 REGIONS = {
@@ -43,6 +44,10 @@ REGIONS = {
                    "meal and oil are the Indiana-Ohio region's"),
     "Minnesota": Region("Minnesota", "MN", "Minnesota", "Minnesota", "Country Elevators", ("Truck",),
                         "no processor bid is reported; the bean price is the average country-elevator bid"),
+    "Nebraska": Region("Nebraska", "NE", "Iowa", "Iowa", "Country Elevators", ("Truck/Rail",),
+                       "AMS quotes no Nebraska meal or oil, so Iowa's are used; no processor bid is reported, so the "
+                       "bean price is the average of the East and Southeast country-elevator bids",
+                       bean_locs=("East", "Southeast")),
 }
 PRICE_BASES = {"Low end of AMS range": "min", "Midpoint (AMS average)": "avg"}
 
@@ -73,6 +78,8 @@ def weekly_feed(feed: pd.DataFrame, region: Region, mode: str | None = None, bas
 def weekly_beans(bids_weekly: pd.DataFrame, region: Region) -> pd.Series:
     """Weekly average nearby bid. bids_weekly columns: state, week (Monday), delivery_point, bean."""
     b = bids_weekly[(bids_weekly.state == region.state) & (bids_weekly.delivery_point == region.bean_point)].copy()
+    if region.bean_locs and "trade_loc" in b.columns:
+        b = b[b.trade_loc.isin(region.bean_locs)]
     b["week"] = pd.to_datetime(b["week"])
     return b.groupby("week")["bean"].mean().rename("bean")
 

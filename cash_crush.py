@@ -170,7 +170,7 @@ def _ams():
         return str(exc), None
 
 
-REGION_COLORS = {"Illinois": ui.SAGE, "Iowa": ui.CLAY, "Indiana": ui.BLUE, "Ohio": ui.PURPLE, "Minnesota": "#d9a441"}
+REGION_COLORS = {"Illinois": ui.SAGE, "Iowa": ui.CLAY, "Indiana": ui.BLUE, "Ohio": ui.PURPLE, "Minnesota": "#d9a441", "Nebraska": "#4b8f8c"}
 
 
 def render_regional() -> None:
