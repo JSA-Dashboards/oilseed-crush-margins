@@ -60,7 +60,9 @@ with c3:
     seed_file = st.file_uploader("Seed history CSV (replaces bundled)", type="csv",
                                  help="Columns: date, close (CAD/mt).")
 with c4:
-    months = st.slider("History (months)", 3, 14, 12)
+    months = st.slider("History (months)", 3, 48, 12,
+                      help="Canola crush needs CAD futures, which Massive carries from Oct 2022, so about 47 months is the most "
+                           "there is.")
     if not api_key and not store.configured():
         api_key = st.text_input("Massive API Key", type="password")
 st.markdown("---")
