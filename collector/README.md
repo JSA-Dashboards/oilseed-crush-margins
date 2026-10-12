@@ -31,3 +31,21 @@ seed history with it. Runs on a PC that has QST open; it is not a cloud job.
 - If QST is closed the run exits with a clear message and writes nothing; the app then simply stays on
   the last banked settle.
 - Tests: `python -m unittest collector/test_collector.py` (uses a mock QST server).
+
+## Fallback: the analyst workbook (no QST needed)
+
+`workbook_canola.py` reads the saved `Canola Prices.xlsx` (the Barchart add-in tab) and loads the last
+10 days into the same table with source `WORKBOOK`. It never overwrites a QST value for the same
+contract and day, and it warns when the workbook's newest date is more than 3 weekdays old.
+
+    python collector\workbook_canola.py --dry-run     # preview
+    python collector\workbook_canola.py               # load
+
+It is only as fresh as the last time the workbook was **refreshed in Excel and saved**. To automate,
+schedule it a little after whoever refreshes the workbook (weekdays 5:00 pm):
+
+    schtasks /Create /TN "Canola Workbook Load" /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 17:00 /TR "python C:\path	o\collector\workbook_canola.py"
+
+**Before Nov 1:** the workbook has no RSF27 column yet. RSX26 stops being the front contract on
+Nov 1, so add RSF27 (then RSH27, RSK27, ...) as new columns in the Barchart tab, next to the others,
+or the live seed will stop at Oct 31. The loader picks new columns up automatically.

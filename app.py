@@ -110,7 +110,7 @@ if use_sf and seed_file is None:
         _live = _live[_live.index > seed.index.max()] if len(seed) else _live
         if len(_live):
             seed = pd.concat([seed, _live]).sort_index()
-            seed_note = f"bundled history + live QST through {_live.index.max():%b %d}"
+            seed_note = f"bundled history + live feed through {_live.index.max():%b %d}"
     except Exception:
         pass                                           # table not there yet / no grant: bundled only
 if seed_file is not None:
