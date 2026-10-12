@@ -162,3 +162,14 @@ def fetch_ams_bean_weeks() -> pd.DataFrame:
         return pd.DataFrame(cur.fetchall(), columns=["state", "week", "trade_loc", "delivery_point", "bean", "n"])
     finally:
         conn.close()
+
+
+def fetch_legacy_futures(since) -> pd.DataFrame:
+    """Per-contract ZS/ZM/ZL (2015 to 2021) and continuous CAD from OILSEED_LEGACY_FUTURES."""
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT PRODUCT_CODE, MONTH, YEAR, DATE, SETTLE FROM OILSEED_LEGACY_FUTURES WHERE DATE >= %s", (since,))
+        return pd.DataFrame(cur.fetchall(), columns=["product_code", "month", "year", "date", "settle"])
+    finally:
+        conn.close()

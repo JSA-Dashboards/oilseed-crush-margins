@@ -60,9 +60,9 @@ with c3:
     seed_file = st.file_uploader("Seed history CSV (replaces bundled)", type="csv",
                                  help="Columns: date, close (CAD/mt).")
 with c4:
-    months = st.slider("History (months)", 3, 48, 12,
-                      help="Canola crush needs CAD futures, which Massive carries from Oct 2022, so about 47 months is the most "
-                           "there is.")
+    months = st.slider("History (months)", 3, 130, 12,
+                       help="Back to Dec 2015 where the longer history is available (soybean, meal, oil and CAD from the "
+                            "analyst files); the Massive-fed archive alone starts Oct 2021 (CAD Oct 2022).")
     if not api_key and not store.configured():
         api_key = st.text_input("Massive API Key", type="password")
 st.markdown("---")
@@ -78,6 +78,11 @@ def _hist(key: str, n_months: int, as_of: str, snowflake: bool) -> pd.DataFrame:
     end = date.fromisoformat(as_of)
     start = end - timedelta(days=int(n_months * 30.5))
     if snowflake:
+        try:                                  # older ZS/ZM/ZL and CAD from the analyst files, if the role can read them
+            return load_history_snowflake(start, end, store.fetch_settlements, store.fetch_legacy_futures)
+        except Exception as exc:
+            if "OILSEED_LEGACY_FUTURES" not in str(exc):
+                raise
         return load_history_snowflake(start, end, store.fetch_settlements)
     return load_history(key, start, end)
 

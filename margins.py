@@ -80,12 +80,14 @@ def _needed_tickers(start: date, end: date):
     return soy, fx, wanted
 
 
-def _assemble(soy, fx, got: dict, start: date, end: date) -> pd.DataFrame:
+def _assemble(soy, fx, got: dict, start: date, end: date, cont: pd.Series | None = None) -> pd.DataFrame:
     def build(p, sched):
         return _front_series([((p, l, y), roll) for l, y, roll in sched], got)
 
-    df = pd.DataFrame({"ZS": build("ZS", soy), "ZM": build("ZM", soy),
-                       "ZL": build("ZL", soy), "6C": build("6C", fx)})
+    six = build("6C", fx)
+    if cont is not None and len(cont):       # continuous CAD futures fills the days before the quarterly archive starts
+        six = six.combine_first(cont)
+    df = pd.DataFrame({"ZS": build("ZS", soy), "ZM": build("ZM", soy), "ZL": build("ZL", soy), "6C": six})
     df.index = pd.to_datetime(df.index)
     df = df[(df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))].dropna()
     df["USDCAD"] = 1.0 / df["6C"]
@@ -108,10 +110,16 @@ def load_history(api_key: str, start: date, end: date) -> pd.DataFrame:
     return _assemble(soy, fx, got, start, end)
 
 
-def load_history_snowflake(start: date, end: date, fetch_rows) -> pd.DataFrame:
-    """Same frame, from JSA.COST_OF_CARRY.FUTURES_SETTLEMENTS (filled daily by the droplet).
+# ZM/ZL carry the pairing letter (Nov beans use Dec meal and oil); this maps it back to the bean month the schedule uses.
+_LEGACY_LETTER = {"F": "F", "H": "H", "K": "K", "N": "N", "Q": "Q", "U": "U", "Z": "X"}
 
-    fetch_rows(start) -> DataFrame[ticker, date, settle]."""
+
+def load_history_snowflake(start: date, end: date, fetch_rows, fetch_legacy=None) -> pd.DataFrame:
+    """Same frame, from JSA.COST_OF_CARRY.FUTURES_SETTLEMENTS (filled daily by the droplet, from Oct 2021).
+
+    fetch_rows(start) -> DataFrame[ticker, date, settle].
+    fetch_legacy(start) -> DataFrame[product_code, month, year, date, settle] from OILSEED_LEGACY_FUTURES: per-contract
+    ZS/ZM/ZL back to 2015 and a continuous CAD series, which extend the history to Dec 2015. Optional."""
     soy, fx, wanted = _needed_tickers(start, end)
     rows = fetch_rows(start - pd.Timedelta(days=45).to_pytimedelta())
     by_ticker = {t: g.set_index("date")["settle"].sort_index() for t, g in rows.groupby("ticker")}
@@ -119,26 +127,17 @@ def load_history_snowflake(start: date, end: date, fetch_rows) -> pd.DataFrame:
     for s in got.values():
         if len(s):
             s.index = [pd.Timestamp(d).date() for d in s.index]
-    return _assemble(soy, fx, got, start, end)
-
-
-RS_MONTH_NUM = {"F": 1, "H": 3, "K": 5, "N": 7, "X": 11}
-
-
-def front_seed_series(rows: pd.DataFrame) -> pd.Series:
-    """Front-month ICE canola settles from per-contract rows [ticker, date, settle].
-
-    A contract is front until the 1st of its delivery month, the same roll rule the bundled
-    history uses, so the live series joins it without a step."""
-    if rows is None or rows.empty:
-        return pd.Series(dtype=float)
-    r = rows.copy()
-    r["date"] = pd.to_datetime(r["date"])
-
-    def roll(t: str) -> pd.Timestamp:
-        return pd.Timestamp(2000 + int(t[3:5]), RS_MONTH_NUM[t[2]], 1)
-
-    r["roll"] = r["ticker"].map(roll)
-    r = r[r["date"] < r["roll"]]                       # contract already delivering: not front
-    r = r.sort_values(["date", "roll"]).drop_duplicates("date", keep="first")
-    return r.set_index("date")["settle"].astype(float).sort_index()
+    cont = None
+    if fetch_legacy is not None:
+        leg = fetch_legacy(start - pd.Timedelta(days=400).to_pytimedelta())
+        leg = leg.assign(date=[pd.Timestamp(d).date() for d in leg["date"]])
+        for (p, m, y), g in leg[leg["product_code"].isin(["ZS", "ZM", "ZL"])].groupby(["product_code", "month", "year"]):
+            letter = m if p == "ZS" else _LEGACY_LETTER.get(m)
+            if letter is None:                                   # e.g. October meal/oil: no bean month pairs with it
+                continue
+            s = g.set_index("date")["settle"].sort_index()
+            key = (p, letter, int(y))
+            got[key] = s.combine_first(got[key]) if key in got and len(got[key]) else s
+        c = leg[leg["product_code"] == "6C"]
+        cont = c.set_index("date")["settle"].sort_index() if len(c) else None
+    return _assemble(soy, fx, got, start, end, cont)
