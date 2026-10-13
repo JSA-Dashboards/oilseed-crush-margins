@@ -185,12 +185,12 @@ ui.metric(c[5], "USD/CAD", f"{last.USDCAD:.4f}")
 if legs == "Fastmarkets cash":
     ui.note("<b>Cash legs:</b> canola oil is fob Los Angeles and canola meal fob Velva ND (Fastmarkets spot "
             "assessments), so this is an indicator rather than any single plant margin. "
-            "Canola ¢/bu is CAD-denominated (margin ÷ 55.1155); soy is USD.")
+            "Canola ¢/bu is USD per 60-lb soybean-equivalent bushel (CAD margin ÷ USD/CAD ÷ 36.7437 bu/mt), the same basis as soy.")
 else:
     ui.note("<b>Proxy caveat:</b> the canola index uses soybean oil as a proxy for canola oil and likely "
             "<b>understates</b> true canola crush returns, since canola oil trades at a premium. Enter a canola oil "
-            "cash price in the oil override above to replace the soy oil leg. Canola ¢/bu is CAD-denominated "
-            "(margin ÷ 55.1155) while soy is USD; both are shown as specified for direct comparison. The 0.75 "
+            "cash price in the oil override above to replace the soy oil leg. Canola ¢/bu is USD per 60-lb "
+            "soybean-equivalent bushel (CAD margin ÷ USD/CAD ÷ 36.7437 bu/mt), so it compares directly with soy. The 0.75 "
             "protein factor is applied to the 60% meal term.")
 
 

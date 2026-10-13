@@ -5,7 +5,7 @@ Canola (COOPA-style, per the dashboard spec):
   meal $/mt = ZM $/short ton * 1.10231
   revenue USD/mt = 0.40 * oil + 0.60 * 0.75 * meal   (0.75 = protein-equivalence on meal)
   margin CAD/mt  = revenue * USDCAD - ICE canola seed (CAD/mt)
-  margin ¢/bu    = margin / 55.1155 * 100
+  margin US¢/bu  = margin / USDCAD / 36.7437 * 100   (USD per 60-lb soybean-equivalent bushel)
 Soy (11-44-ish): 11 lb oil + 0.022 st meal - bean, in ¢/bu.
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ from massive_api import MassiveApiError, get_settlement_history
 LBS_PER_MT = 2204.62
 ST_TO_MT = 1.10231
 OIL_SHARE, MEAL_SHARE, MEAL_PROTEIN = 0.40, 0.60, 0.75
-BU_DIVISOR = 55.1155
+BU_PER_MT = LBS_PER_MT / 60.0    # 36.7437 sixty-pound (soybean-equivalent) bushels per tonne
 SOY_OIL_LBS, SOY_MEAL_TONS = 11.0, 44.0 / 2000.0
 
 # bean month letter -> (ZM/ZL letter). Nov beans pair with Dec products.
@@ -35,7 +35,7 @@ def canola_margin_cad(oil_c_lb, meal_st, usdcad, seed_cad):
 
 
 def canola_margin_cents_bu(oil_c_lb, meal_st, usdcad, seed_cad):
-    return canola_margin_cad(oil_c_lb, meal_st, usdcad, seed_cad) / BU_DIVISOR * 100.0
+    return canola_margin_cad(oil_c_lb, meal_st, usdcad, seed_cad) / usdcad / BU_PER_MT * 100.0
 
 
 def soy_margin_cents_bu(oil_c_lb, meal_st, zs_cents):
