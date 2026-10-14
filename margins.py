@@ -5,7 +5,7 @@ Canola (COOPA-style, per the dashboard spec):
   meal $/mt = ZM $/short ton * 1.10231
   revenue USD/mt = 0.40 * oil + 0.60 * 0.75 * meal   (0.75 = protein-equivalence on meal)
   margin CAD/mt  = revenue * USDCAD - ICE canola seed (CAD/mt)
-  margin US¢/bu  = margin / USDCAD / 36.7437 * 100   (USD per 60-lb soybean-equivalent bushel)
+  margin US¢/bu  = margin / USDCAD / 44.0924 * 100   (USD per 50-lb canola bushel)
 Soy (11-44-ish): 11 lb oil + 0.022 st meal - bean, in ¢/bu.
 """
 from __future__ import annotations
@@ -20,7 +20,9 @@ from massive_api import MassiveApiError, get_settlement_history
 LBS_PER_MT = 2204.62
 ST_TO_MT = 1.10231
 OIL_SHARE, MEAL_SHARE, MEAL_PROTEIN = 0.40, 0.60, 0.75
-BU_PER_MT = LBS_PER_MT / 60.0    # 36.7437 sixty-pound (soybean-equivalent) bushels per tonne
+CANOLA_BU_LBS = 50.0
+BU_PER_MT = LBS_PER_MT / CANOLA_BU_LBS    # 44.0924 fifty-pound canola bushels per tonne
+# per 50-lb bushel: oil 20 lb (40%), meal 30 lb (60%) of which 0.75 is counted -> 22.5 lb
 SOY_OIL_LBS, SOY_MEAL_TONS = 11.0, 44.0 / 2000.0
 
 # bean month letter -> (ZM/ZL letter). Nov beans pair with Dec products.
