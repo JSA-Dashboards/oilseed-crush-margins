@@ -164,6 +164,25 @@ def fetch_ams_bean_weeks() -> pd.DataFrame:
         conn.close()
 
 
+def fetch_psd_crush() -> pd.DataFrame:
+    """USDA PSD soybean crush and production, soybean meal and oil production, US / Brazil / Argentina.
+
+    Read from JSA.WASDE.PSD_HISTORY (the WASDE dashboard's full-history table; its droplet job refreshes the last three
+    marketing years on the 12th and 14th of each month). Values are 1,000 metric tons, marketing years.
+    """
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COMMODITY_CODE, COUNTRY_CODE, MARKET_YEAR, ATTRIBUTE_ID, VALUE, AS_OF FROM JSA.WASDE.PSD_HISTORY "
+            "WHERE COUNTRY_CODE IN ('US','BR','AR') AND ("
+            "(COMMODITY_CODE = '2222000' AND ATTRIBUTE_ID IN (28, 125)) OR "
+            "(COMMODITY_CODE IN ('0813100','4232000') AND ATTRIBUTE_ID = 28))")
+        return pd.DataFrame(cur.fetchall(), columns=["commodity", "country", "year", "attribute", "value", "as_of"])
+    finally:
+        conn.close()
+
+
 def fetch_legacy_futures(since) -> pd.DataFrame:
     """Per-contract ZS/ZM/ZL (2015 to 2021) and continuous CAD from OILSEED_LEGACY_FUTURES."""
     conn = _connect()

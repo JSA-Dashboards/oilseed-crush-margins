@@ -12,6 +12,7 @@ import streamlit as st
 import canola_seed_view
 import cash_crush
 import canada
+import global_crush
 import jsa_style as ui
 import store
 import margins
@@ -30,7 +31,7 @@ except Exception:
     api_key = ""
 
 # ── Inputs ────────────────────────────────────────────────────────────────────
-view = st.segmented_control("View", ["Crush margins", "Canola seed", "Cash crush", "Canadian industry"],
+view = st.segmented_control("View", ["Crush margins", "Canola seed", "Cash crush", "Global crush", "Canadian industry"],
                             default="Crush margins", key="view", label_visibility="collapsed")
 if view == "Canola seed":
     canola_seed_view.render()
@@ -38,6 +39,10 @@ if view == "Canola seed":
     st.stop()
 if view == "Cash crush":
     cash_crush.render()
+    ui.disclaimer()
+    st.stop()
+if view == "Global crush":
+    global_crush.render()
     ui.disclaimer()
     st.stop()
 if view == "Canadian industry":
