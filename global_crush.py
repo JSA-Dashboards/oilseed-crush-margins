@@ -8,8 +8,9 @@ import streamlit as st
 import jsa_style as ui
 import store
 
-COUNTRIES = {"US": "United States", "BR": "Brazil", "AR": "Argentina"}
-COLORS = {"US": ui.BLUE, "BR": ui.JSA_GREEN, "AR": ui.CLAY}
+COUNTRIES = {"US": "United States", "BR": "Brazil", "AR": "Argentina", "CH": "China"}
+COLORS = {"US": ui.BLUE, "BR": ui.JSA_GREEN, "AR": ui.CLAY, "CH": ui.PURPLE}
+ST_TO_MT = 0.90718474            # NASS reports short tons
 BU_PER_KMT = 36.7437 / 1000.0      # million bushels per 1,000 metric tons of soybeans (60-lb bushel)
 SOY, MEAL, OIL = "2222000", "0813100", "4232000"
 CRUSH, PROD = 125, 28
@@ -37,10 +38,13 @@ def my_label(y: int) -> str:
     return f"{int(y)}/{str(int(y) + 1)[-2:]}"
 
 
-def _lines(w: pd.DataFrame, col: str, scale: float, unit: str, last_year: int, height: int = 400) -> go.Figure:
+def _lines(w: pd.DataFrame, col: str, scale: float, unit: str, last_year: int, height: int = 400,
+           skip: tuple = ()) -> go.Figure:
     """One line per country; the last two points (the USDA forecast and the year before) are dotted."""
     fig = go.Figure()
     for code, name in COUNTRIES.items():
+        if code in skip:
+            continue
         d = w[(w.country == code) & w[col].notna()]
         if d.empty:
             continue
@@ -54,6 +58,65 @@ def _lines(w: pd.DataFrame, col: str, scale: float, unit: str, last_year: int, h
                         customdata=[my_label(y) for y in proj.year])
     fig.update_xaxes(dtick=5)
     return ui.style_fig(fig, height, unit)
+
+
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_nass() -> pd.DataFrame:
+    return store.fetch_nass_crush()
+
+
+def _us_monthly(unit: str, last: int) -> None:
+    """US monthly crush from NASS Fats and Oils: latest month, year-to-date pace, and a line per year."""
+    try:
+        m = load_nass()
+    except Exception as exc:
+        st.info("US monthly crush is not readable by this app yet: its Snowflake role needs read access to the "
+                f"NASS cache ({type(exc).__name__}).")
+        return
+    if m.empty:
+        return
+    mt = unit.startswith("Million metric")
+    f = (ST_TO_MT if mt else 2000.0 / 60.0) / 1e6          # short tons -> million t, or million 60-lb bushels
+    ulab = "million t" if mt else "million bu"
+    m = m.assign(v=m.tons * f, year=m.date.dt.year, month=m.date.dt.month)
+    now = m.iloc[-1]
+    ago = m[(m.year == now.year - 1) & (m.month == now.month)]
+    ytd = m[(m.year == now.year) & (m.month <= now.month)].v.sum()
+    ytd_ago = m[(m.year == now.year - 1) & (m.month <= now.month)].v.sum()
+    t12 = m.tail(12).v.sum()
+    t12_ago = m.iloc[-24:-12].v.sum() if len(m) >= 24 else float("nan")
+
+    ui.sec(f"US monthly soybean crush, {ulab}")
+    ui.asof(f"USDA NASS Fats and Oils, national, through {now.date:%B %Y} &middot; published about three months after the "
+            f"month; refreshed daily by the NASS cache job.")
+    c = st.columns(4)
+    ui.metric(c[0], f"{now.date:%B %Y} crush", f"{now.v:,.2f} {ulab}",
+              f"{(now.v / ago.v.iloc[0] - 1) * 100:+.1f}% vs {now.date:%b} {now.year - 1}" if len(ago) else None,
+              sub="latest NASS month")
+    ui.metric(c[1], f"{now.year} year to date", f"{ytd:,.1f} {ulab}",
+              f"{(ytd / ytd_ago - 1) * 100:+.1f}% vs same months of {now.year - 1}" if ytd_ago else None,
+              sub=f"Jan to {now.date:%b}")
+    ui.metric(c[2], "Trailing 12 months", f"{t12:,.1f} {ulab}",
+              f"{(t12 / t12_ago - 1) * 100:+.1f}% vs the 12 months before" if t12_ago == t12_ago else None, sub="rolling total")
+    ui.metric(c[3], "Daily rate, latest month", f"{now.v / now.date.days_in_month * 1000:,.1f} thousand {ulab.split()[1]}/day",
+              sub="monthly total over days in the month")
+
+    years = sorted(m.year.unique())[-6:]
+    palette = [ui.DM_MUTED, ui.CLAY, ui.PURPLE, "#d9a441", ui.JSA_GREEN, ui.BLUE]
+    fig = go.Figure()
+    for i, y in enumerate(years):
+        d = m[m.year == y]
+        is_cur = y == years[-1]
+        fig.add_scatter(x=[MONTHS[k - 1] for k in d.month], y=d.v, mode="lines+markers" if is_cur else "lines", name=str(y),
+                        line=dict(color=palette[(i + len(palette) - len(years)) % len(palette)], width=3.2 if is_cur else 1.5),
+                        hovertemplate=f"{y}<br>%{{x}}<br>%{{y:,.2f}} {ulab}<extra></extra>")
+    st.plotly_chart(ui.style_fig(fig, 340, ulab), width="stretch")
+    st.caption("Monthly totals as reported, so shorter months run lower; the daily rate above removes that. NASS counts "
+               "short tons of soybeans crushed; they are converted to metric tons or 60-lb bushels here. NOPA's member crush, "
+               "released about the 15th for the prior month, is earlier but is not used here.")
 
 
 def render() -> None:
@@ -81,7 +144,7 @@ def render() -> None:
     scale, ulab = (1 / 1000.0, "million t") if unit.startswith("Million metric") else (BU_PER_KMT, "million bu")
     v = w[w.year >= first]
 
-    cols = st.columns(4)
+    cols = st.columns(5)
     cur = w[w.year == last].set_index("country")
     prev = w[w.year == last - 1].set_index("country")
     for col, code in zip(cols, COUNTRIES):
@@ -92,13 +155,15 @@ def render() -> None:
                   sub="USDA forecast")
     tot = cur.crush.reindex(list(COUNTRIES)).sum()
     tot_prev = prev.crush.reindex(list(COUNTRIES)).sum()
-    ui.metric(cols[3], f"Three-country total, {my_label(last)}", f"{tot * scale:,.1f} {ulab}",
-              f"{(tot / tot_prev - 1) * 100:+.1f}% vs {my_label(last - 1)}" if tot_prev else None, sub="US + Brazil + Argentina")
+    ui.metric(cols[4], f"Four-country total, {my_label(last)}", f"{tot * scale:,.1f} {ulab}",
+              f"{(tot / tot_prev - 1) * 100:+.1f}% vs {my_label(last - 1)}" if tot_prev else None, sub="US + Brazil + Argentina + China")
+
+    _us_monthly(unit, last)
 
     ui.sec(f"Soybean crush by marketing year, {ulab}")
     st.plotly_chart(_lines(v, "crush", scale, ulab, last), width="stretch")
 
-    ui.sec("Share of three-country crush, %")
+    ui.sec("Share of four-country crush, %")
     s = v[v.crush.notna()].pivot(index="year", columns="country", values="crush").dropna()
     s = s.div(s.sum(axis=1), axis=0) * 100
     fig = go.Figure()
@@ -108,7 +173,7 @@ def render() -> None:
                             line=dict(color=COLORS[code], width=0.8),
                             hovertemplate=f"{name}<br>%{{x}}<br>%{{y:.1f}}%<extra></extra>")
     fig.update_xaxes(dtick=5)
-    st.plotly_chart(ui.style_fig(fig, 300, "% of the three"), width="stretch")
+    st.plotly_chart(ui.style_fig(fig, 300, "% of the four"), width="stretch")
 
     ui.sec("Meal and oil output")
     prod = st.radio("Product", ["Soybean meal", "Soybean oil"], horizontal=True, key="gc_prod")
@@ -118,8 +183,8 @@ def render() -> None:
                f"domestic use of the products are on the WASDE dashboard.")
 
     ui.sec("Crush as a share of the country's own soybean crop, %")
-    st.plotly_chart(_lines(v, "crush_share_prod", 1.0, "% of production", last, 320), width="stretch")
-    st.caption("Crush divided by soybean production in the same marketing year. Argentina crushes most of its crop and "
+    st.plotly_chart(_lines(v, "crush_share_prod", 1.0, "% of production", last, 320, skip=("CH",)), width="stretch")
+    st.caption("Crush divided by soybean production in the same marketing year; China is left off because it crushes about six times what it grows (imports). Argentina crushes most of its crop and "
                "exports meal and oil; the US and Brazil export a large share of their beans whole. Above 100% means more "
                "beans were crushed than grown that year (imports and carry-in stocks).")
 

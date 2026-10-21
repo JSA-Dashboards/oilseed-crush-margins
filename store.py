@@ -165,7 +165,7 @@ def fetch_ams_bean_weeks() -> pd.DataFrame:
 
 
 def fetch_psd_crush() -> pd.DataFrame:
-    """USDA PSD soybean crush and production, soybean meal and oil production, US / Brazil / Argentina.
+    """USDA PSD soybean crush and production, soybean meal and oil production, US / Brazil / Argentina / China.
 
     Read from JSA.WASDE.PSD_HISTORY (the WASDE dashboard's full-history table; its droplet job refreshes the last three
     marketing years on the 12th and 14th of each month). Values are 1,000 metric tons, marketing years.
@@ -175,12 +175,44 @@ def fetch_psd_crush() -> pd.DataFrame:
         cur = conn.cursor()
         cur.execute(
             "SELECT COMMODITY_CODE, COUNTRY_CODE, MARKET_YEAR, ATTRIBUTE_ID, VALUE, AS_OF FROM JSA.WASDE.PSD_HISTORY "
-            "WHERE COUNTRY_CODE IN ('US','BR','AR') AND ("
+            "WHERE COUNTRY_CODE IN ('US','BR','AR','CH') AND ("
             "(COMMODITY_CODE = '2222000' AND ATTRIBUTE_ID IN (28, 125)) OR "
             "(COMMODITY_CODE IN ('0813100','4232000') AND ATTRIBUTE_ID = 28))")
         return pd.DataFrame(cur.fetchall(), columns=["commodity", "country", "year", "attribute", "value", "as_of"])
     finally:
         conn.close()
+
+
+# The ETL's cached NASS pull (usda-nass-etl jobs/oilseed_crush.py): hash these exact params with its cache-key rule.
+NASS_CRUSH_PARAMS = {"source_desc": "SURVEY", "commodity_desc": "SOYBEANS", "statisticcat_desc": "CRUSHED",
+                     "agg_level_desc": "NATIONAL"}
+
+
+def fetch_nass_crush() -> pd.DataFrame:
+    """US monthly soybean crush, NASS Fats and Oils (short tons), read from the shared NASS cache the ETL fills."""
+    import hashlib
+    import json
+
+    canon = json.dumps({k: str(v) for k, v in NASS_CRUSH_PARAMS.items()}, sort_keys=True, separators=(",", ":"))
+    key = hashlib.sha256(f"api_GET|{canon}".encode()).hexdigest()
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT DATA, FETCHED_AT FROM JSA.NASS_CACHE.NASS_CACHE WHERE CACHE_KEY = %s", (key,))
+        row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return pd.DataFrame(columns=["date", "tons"])
+    data = row[0] if isinstance(row[0], (dict, list)) else json.loads(row[0])
+    rows = data["data"] if isinstance(data, dict) else data
+    months = {m: i + 1 for i, m in enumerate(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"])}
+    out = [(pd.Timestamp(int(r["year"]), months[r["reference_period_desc"]], 1), float(str(r["Value"]).replace(",", "")))
+           for r in rows if r.get("freq_desc") == "MONTHLY" and r.get("reference_period_desc") in months
+           and str(r.get("Value", "")).replace(",", "").replace(".", "").isdigit()]
+    df = pd.DataFrame(out, columns=["date", "tons"]).drop_duplicates("date").sort_values("date")
+    df.attrs["fetched_at"] = row[1]
+    return df
 
 
 def fetch_legacy_futures(since) -> pd.DataFrame:
