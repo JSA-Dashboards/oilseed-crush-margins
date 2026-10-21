@@ -133,9 +133,10 @@ def render() -> None:
         return
     w = wide(raw)
     last = int(w[w.crush.notna()].year.max())
-    as_of = pd.to_datetime(raw.as_of).max()
+    ym = int(raw.as_of.max())               # PSD's AS_OF is the WASDE report month as YYYYMM
+    as_of = pd.Timestamp(ym // 100, ym % 100, 1)
     ui.asof(f"USDA FAS Production, Supply and Distribution (PSD), the numbers behind the monthly WASDE &middot; marketing years "
-            f"&middot; data as of {as_of:%b %d, %Y}. The latest year ({my_label(last)}) is a USDA forecast and is dotted; "
+            f"&middot; through the {as_of:%B %Y} WASDE. The latest year ({my_label(last)}) is a USDA forecast and is dotted; "
             f"it is revised at each WASDE.")
 
     c1, c2, _ = st.columns([1.4, 1.4, 1.2])
